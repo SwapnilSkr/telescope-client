@@ -1,81 +1,242 @@
-"use client"
+/* eslint-disable react-hooks/exhaustive-deps */
+"use client";
 
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus } from "lucide-react";
+import { ThreatActorDetail } from "@/components/ThreatActorDetail";
+import { AddGroupModal } from "@/components/AddGroupModal";
+import { BASE_URL } from "@/utils/baseUrl";
 
-const mockThreatActors = [
-  { id: 1, name: "APT29", type: "APT", region: "Russia", status: "Active" },
-  { id: 2, name: "Lazarus Group", type: "APT", region: "North Korea", status: "Active" },
-  { id: 3, name: "FIN7", type: "Cybercrime", region: "Eastern Europe", status: "Active" },
-  { id: 4, name: "Anonymous", type: "Hacktivist", region: "Global", status: "Active" },
-  { id: 5, name: "Carbanak", type: "Cybercrime", region: "Russia", status: "Dormant" },
-]
+const ITEMS_PER_PAGE = 10;
+
+interface Group {
+  id: string;
+  name: string;
+  type: string;
+  status: "active" | "dormant" | "inactive";
+  messageCount: number;
+  lastMessage: {
+    content: string;
+    timestamp: string;
+  };
+}
 
 export default function ThreatActorLibrary() {
-  const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState("all")
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const filteredActors = mockThreatActors.filter(
-    (actor) =>
-      (actor.name.toLowerCase().includes(search.toLowerCase()) ||
-        actor.type.toLowerCase().includes(search.toLowerCase()) ||
-        actor.region.toLowerCase().includes(search.toLowerCase())) &&
-      (filter === "all" || actor.type === filter),
-  )
+  // Get params from URL
+  const initialSearch = searchParams.get("keyword") || "";
+  const initialCategory = searchParams.get("category") || "All";
+  const initialPage = parseInt(searchParams.get("page") || "1", 10);
+
+  // States
+  const [searchInput, setSearchInput] = useState<string>(initialSearch);
+  const [selectedType, setSelectedType] = useState<string>(initialCategory);
+  const [currentPage, setCurrentPage] = useState<number>(initialPage);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
+  const [categories, setCategories] = useState<string[]>(["All"]);
+
+  // Fetch categories for the dropdown
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/categories`);
+        if (!response.ok) throw new Error("Failed to fetch categories");
+
+        const data = await response.json();
+        const categoryNames = data.categories.map(
+          (c: { category_name: string }) => c.category_name
+        );
+        setCategories(["All", ...categoryNames]); // Add "All" as default
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Fetch groups from the API
+  const fetchGroups = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchInput) params.set("keyword", searchInput);
+      if (selectedType !== "All") params.set("category", selectedType);
+      params.set("page", currentPage.toString());
+      params.set("limit", ITEMS_PER_PAGE.toString());
+
+      const response = await fetch(
+        `${BASE_URL}/groups/search?${params.toString()}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch groups");
+
+      const data = await response.json();
+      setGroups(data.groups);
+      setTotalPages(data.total_pages);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+    setLoading(false);
+  }, [searchInput, selectedType, currentPage]);
+
+  console.log("totalPages", totalPages);
+  // Update query params in URL
+  const updateQueryParams = () => {
+    const params = new URLSearchParams();
+    if (searchInput) params.set("keyword", searchInput);
+    if (selectedType !== "All") params.set("category", selectedType);
+    params.set("page", currentPage.toString());
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  // Fetch groups when parameters change
+  useEffect(() => {
+    fetchGroups();
+    updateQueryParams();
+  }, [fetchGroups]);
+
+  // Get card color based on status
+  const getCardColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-50 hover:bg-green-100";
+      case "dormant":
+        return "bg-yellow-50 hover:bg-yellow-100";
+      case "inactive":
+        return "bg-red-50 hover:bg-red-100";
+      default:
+        return "bg-gray-50 hover:bg-gray-100";
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Threat Actor Library</h1>
-      <div className="flex space-x-4">
-        <Input
-          placeholder="Search threat actors..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select value={filter} onValueChange={setFilter}>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Threat Actor Library</h1>
+        <Button onClick={() => setIsAddGroupModalOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add a Group
+        </Button>
+      </div>
+
+      {/* Search & Filter */}
+      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+        <div className="flex-1 flex space-x-2">
+          <Input
+            placeholder="Search groups..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="flex-1"
+          />
+        </div>
+        <Select value={selectedType} onValueChange={setSelectedType}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="APT">APT</SelectItem>
-            <SelectItem value="Cybercrime">Cybercrime</SelectItem>
-            <SelectItem value="Hacktivist">Hacktivist</SelectItem>
+            {categories.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredActors.map((actor) => (
-          <Card key={actor.id}>
-            <CardHeader>
-              <CardTitle>{actor.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Type:</span>
-                  <Badge>{actor.type}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Region:</span>
-                  <span>{actor.region}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Status:</span>
-                  <Badge variant={actor.status === "Active" ? "default" : "secondary"}>{actor.status}</Badge>
-                </div>
-              </div>
-              <Button className="w-full mt-4">View Details</Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
-}
 
+      {/* Display Groups */}
+      {loading ? (
+        <p className="text-center text-gray-500">Loading groups...</p>
+      ) : (
+        <div className="space-y-4">
+          {groups.length === 0 ? (
+            <p className="text-center text-gray-500">No groups found.</p>
+          ) : (
+            groups.map((group) => (
+              <Sheet key={group.id}>
+                <SheetTrigger asChild>
+                  <Card
+                    className={`cursor-pointer transition-colors shadow-md ${getCardColor(group.status)}`}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex justify-between items-center">
+                        <span>{group.name}</span>
+                        <Badge variant="outline">{group.type}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Badge className={getCardColor(group.status)}>
+                        {group.status}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                </SheetTrigger>
+                <SheetContent>
+                  <ThreatActorDetail actor={group} />
+                </SheetContent>
+              </Sheet>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
+      <AddGroupModal
+        isOpen={isAddGroupModalOpen}
+        setIsOpen={setIsAddGroupModalOpen}
+      />
+    </div>
+  );
+}

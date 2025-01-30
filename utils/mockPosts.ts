@@ -8,7 +8,7 @@ export const mockPosts = [
     tags: ["Ransomware", "Healthcare", "Critical"],
     media: {
       type: "image",
-      url: "https://telescopebucket0212.s3.eu-north-1.amazonaws.com/1692599650/104.jpg",
+      url: "/images/ransomware-attack.jpg",
       alt: "Ransomware attack visualization",
     },
   },
@@ -21,8 +21,8 @@ export const mockPosts = [
     tags: ["Phishing", "Finance", "OAuth"],
     media: {
       type: "video",
-      url: "https://telescopebucket0212.s3.eu-north-1.amazonaws.com/1601405286/108.mp4",
-      thumbnail: "Telegram Video",
+      url: "/videos/phishing-demo.mp4",
+      thumbnail: "/images/phishing-thumbnail.jpg",
     },
   },
   {
@@ -42,7 +42,7 @@ export const mockPosts = [
     tags: ["APT29", "Malware", "Government"],
     media: {
       type: "file",
-      url: "https://telescopebucket0212.s3.eu-north-1.amazonaws.com/1601405286/377.pdf",
+      url: "/files/apt29-analysis.pdf",
       name: "APT29 Threat Analysis Report.pdf",
     },
   },
@@ -55,7 +55,7 @@ export const mockPosts = [
     tags: ["LockBit", "Automotive", "Data Breach"],
     media: {
       type: "image",
-      url: "https://telescopebucket0212.s3.eu-north-1.amazonaws.com/1692599650/104.jpg",
+      url: "/images/lockbit-screenshot.jpg",
       alt: "LockBit ransom note screenshot",
     },
   },
@@ -178,4 +178,70 @@ export const mockPosts = [
       "Nation-state actor leveraging new backdoor in targeted espionage campaign",
     tags: ["Nation-state", "Backdoor", "Espionage"],
   },
+];
+
+export const mockThreatActors = [
+  {
+    id: 1,
+    name: "APT29",
+    type: "APT",
+    status: "Active",
+    region: "Russia",
+    messageCount: 1500,
+    lastMessage: {
+      content:
+        "New phishing campaign targeting government institutions detected.",
+      timestamp: "2024-01-30T14:23:00Z",
+    },
+  },
+  {
+    id: 2,
+    name: "Lazarus Group",
+    type: "APT",
+    status: "Active",
+    region: "North Korea",
+    messageCount: 2300,
+    lastMessage: {
+      content: "Cryptocurrency exchange hack attributed to the group.",
+      timestamp: "2024-01-30T10:15:00Z",
+    },
+  },
+  {
+    id: 3,
+    name: "FIN7",
+    type: "Cybercrime",
+    status: "Active",
+    region: "Eastern Europe",
+    messageCount: 1800,
+    lastMessage: {
+      content: "New malware strain targeting point-of-sale systems identified.",
+      timestamp: "2024-01-29T22:45:00Z",
+    },
+  },
+  {
+    id: 4,
+    name: "Anonymous",
+    type: "Hacktivist",
+    status: "Active",
+    region: "Global",
+    messageCount: 5000,
+    lastMessage: {
+      content: "Operation announced targeting corrupt government officials.",
+      timestamp: "2024-01-30T18:30:00Z",
+    },
+  },
+  {
+    id: 5,
+    name: "Carbanak",
+    type: "Cybercrime",
+    status: "Dormant",
+    region: "Russia",
+    messageCount: 1200,
+    lastMessage: {
+      content:
+        "No recent activity detected. Group possibly disbanded or rebranded.",
+      timestamp: "2023-12-15T09:00:00Z",
+    },
+  },
+  // Add more mock threat actors here...
 ];
