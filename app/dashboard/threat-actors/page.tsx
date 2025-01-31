@@ -184,12 +184,17 @@ export default function ThreatActorLibrary() {
                     <CardHeader>
                       <CardTitle className="flex justify-between items-center">
                         <span>{group.name}</span>
-                        <Badge variant="outline">{group.type}</Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-black bg-white"
+                        >
+                          {group.status}
+                        </Badge>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Badge className={getCardColor(group.status)}>
-                        {group.status}
+                      <Badge variant="outline" className="text-black bg-white">
+                        {group.type}
                       </Badge>
                     </CardContent>
                   </Card>
