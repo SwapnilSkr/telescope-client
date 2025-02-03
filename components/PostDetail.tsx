@@ -21,13 +21,15 @@ interface PostDetailProps {
 }
 
 export function PostDetail({ post }: PostDetailProps) {
+  const isoString = new Date(post.timestamp).toISOString();
+  const [date, time] = isoString.split("T");
+  const formattedTime = time.split(".")[0];
+
   return (
     <ScrollArea className="max-h-[100vh] w-full p-4 overflow-y-auto rounded-lg border bg-white shadow-lg">
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">{post.channel}</h2>
-        <p className="text-gray-500">
-          {new Date(post.timestamp).toLocaleString()}
-        </p>
+        <p className="text-gray-500">{`${date}, ${formattedTime}`}</p>
         <p>{post.content}</p>
 
         {/* Tags Section */}

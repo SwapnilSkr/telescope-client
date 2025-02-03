@@ -218,37 +218,42 @@ export default function RealTimeFeed() {
           {posts.length === 0 ? (
             <p className="text-center text-gray-500">No posts found.</p>
           ) : (
-            posts.map((post) => (
-              <Sheet key={post.id}>
-                <SheetTrigger asChild>
-                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-                    <CardHeader>
-                      <CardTitle>{post.channel}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="mb-2">
-                        {truncateContent(post.content, 10)}
-                      </p>
-                      <div className="flex flex-wrap justify-between items-center gap-2">
-                        <div className="flex flex-wrap gap-2">
-                          {post.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary">
-                              {tag}
-                            </Badge>
-                          ))}
+            posts.map((post) => {
+              const isoString = new Date(post.timestamp).toISOString();
+              const [date, time] = isoString.split("T"); // Splitting date and time
+              const formattedTime = time.split(".")[0]; // Removing milliseconds
+              return (
+                <Sheet key={post.id}>
+                  <SheetTrigger asChild>
+                    <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
+                      <CardHeader>
+                        <CardTitle>{post.channel}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="mb-2">
+                          {truncateContent(post.content, 10)}
+                        </p>
+                        <div className="flex flex-wrap justify-between items-center gap-2">
+                          <div className="flex flex-wrap gap-2">
+                            {post.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                          <span className="text-sm text-gray-500">
+                            {`${date}, ${formattedTime}`}
+                          </span>
                         </div>
-                        <span className="text-sm text-gray-500">
-                          {new Date(post.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </SheetTrigger>
-                <SheetContent>
-                  <PostDetail post={post} />
-                </SheetContent>
-              </Sheet>
-            ))
+                      </CardContent>
+                    </Card>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <PostDetail post={post} />
+                  </SheetContent>
+                </Sheet>
+              );
+            })
           )}
         </div>
       )}
