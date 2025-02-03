@@ -2,7 +2,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation"; // Import Socket.IO client
+import { useSearchParams, useRouter } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -22,14 +23,21 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { PostDetail } from "@/components/PostDetail";
 import { BASE_URL } from "@/utils/baseUrl";
-import { io, Socket } from "socket.io-client";
+import { Filter, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const ITEMS_PER_PAGE = 10;
-const PAGINATION_BUTTONS_LIMIT = 10; // Display max 10 buttons at a time
+const PAGINATION_BUTTONS_LIMIT = 10;
 
-// Define TypeScript interfaces
 interface Media {
   type: "image" | "video" | "file";
   url: string;
@@ -47,6 +55,12 @@ interface Post {
   media?: Media;
 }
 
+interface Group {
+  _id: string;
+  group_id: string;
+  title: string;
+}
+
 export default function RealTimeFeed() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -60,20 +74,55 @@ export default function RealTimeFeed() {
     searchParams.get("limit") || ITEMS_PER_PAGE.toString(),
     10
   );
+  const [searchKeyword, setSearchKeyword] = useState<string>(initialSearch);
 
   // States
   const [searchInput, setSearchInput] = useState<string>(initialSearch);
   const [sortBy, setSortBy] = useState<"latest" | "oldest">(initialSortBy);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>(
+    searchParams.getAll("group_ids") // Initialize from "group_ids" in URL
+  );
+  const [groupSearch, setGroupSearch] = useState<string>("");
   const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  // Fetch groups
+  const fetchGroups = useCallback(async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/groups`);
+      if (!response.ok) throw new Error("Failed to fetch groups");
+
+      const data = await response.json();
+      setGroups(data.groups);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  // Filtered groups based on search
+  const filteredGroups = groups.filter((group) =>
+    group.title.toLowerCase().includes(groupSearch.toLowerCase())
+  );
+
   useEffect(() => {
     fetchPosts();
     updateQueryParams();
-  }, [searchInput, sortBy, currentPage, initialLimit, router]);
+  }, [
+    searchKeyword,
+    sortBy,
+    currentPage,
+    selectedGroups,
+    initialLimit,
+    router,
+  ]);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -86,7 +135,6 @@ export default function RealTimeFeed() {
       withCredentials: true,
     });
 
-    // Connection event handlers
     socketInstance.on("connect", () => {
       console.log("Socket connected");
     });
@@ -99,10 +147,8 @@ export default function RealTimeFeed() {
       console.error("Socket connection error:", error);
     });
 
-    // Store socket instance
     setSocket(socketInstance);
 
-    // Cleanup on component unmount
     return () => {
       if (socketInstance) {
         socketInstance.off("connect");
@@ -114,15 +160,27 @@ export default function RealTimeFeed() {
     };
   }, []);
 
+  const handleSearch = () => {
+    setSearchKeyword(searchInput);
+    setCurrentPage(1);
+  };
+
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        keyword: searchInput,
+        keyword: searchKeyword, // Changed from searchInput to searchKeyword
         sortOrder: sortBy,
         page: currentPage.toString(),
         limit: initialLimit.toString(),
       });
+
+      // Add multiple group_ids
+      if (selectedGroups.length > 0) {
+        selectedGroups.forEach((groupId) => {
+          params.append("group_ids", groupId);
+        });
+      }
 
       const response = await fetch(
         `${BASE_URL}/messages/search?${params.toString()}`
@@ -136,7 +194,7 @@ export default function RealTimeFeed() {
       console.error("Error fetching posts:", error);
     }
     setLoading(false);
-  }, [searchInput, sortBy, currentPage, initialLimit]);
+  }, [searchKeyword, sortBy, currentPage, initialLimit, selectedGroups]);
 
   useEffect(() => {
     if (!socket) return;
@@ -153,8 +211,13 @@ export default function RealTimeFeed() {
 
   const updateQueryParams = () => {
     const params = new URLSearchParams();
-    if (searchInput) params.set("keyword", searchInput);
+    if (searchKeyword) params.set("keyword", searchKeyword);
     if (sortBy) params.set("sortBy", sortBy);
+    if (selectedGroups.length > 0) {
+      selectedGroups.forEach((groupId) => {
+        params.append("group_ids", groupId); // Use "group_ids" to match the API
+      });
+    }
     params.set("page", currentPage.toString());
     params.set("limit", initialLimit.toString());
     router.push(`?${params.toString()}`, { scroll: false });
@@ -190,24 +253,94 @@ export default function RealTimeFeed() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="flex-1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
           />
+          <Button variant="default" onClick={handleSearch}>
+            <Search className="h-4 w-4 mr-2" />
+            Search
+          </Button>
         </div>
 
-        <Select
-          value={sortBy}
-          onValueChange={(value) => {
-            setSortBy(value as "latest" | "oldest");
-            setCurrentPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="latest">Latest</SelectItem>
-            <SelectItem value="oldest">Oldest</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex space-x-2">
+          <Select
+            value={sortBy}
+            onValueChange={(value) => {
+              setSortBy(value as "latest" | "oldest");
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4" />
+              <SelectValue placeholder="Sort And Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest">Sort By Latest</SelectItem>
+              <SelectItem value="oldest">Sort By Oldest</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Groups Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                Groups ({selectedGroups.length})
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="mb-4">
+                <Input
+                  placeholder="Search groups..."
+                  value={groupSearch}
+                  onChange={(e) => setGroupSearch(e.target.value)}
+                />
+              </div>
+              <ScrollArea className="h-[200px] pr-4">
+                {filteredGroups.slice(0, 10).map((group) => {
+                  const selectedGroupsArrayInt = selectedGroups.map((g) =>
+                    parseInt(g)
+                  );
+                  return (
+                    <div
+                      key={group._id}
+                      className="flex items-center space-x-2 mb-2"
+                    >
+                      <Checkbox
+                        id={group._id}
+                        checked={selectedGroupsArrayInt.includes(
+                          parseInt(group.group_id)
+                        )}
+                        onCheckedChange={(checked) => {
+                          setSelectedGroups(
+                            checked
+                              ? [...selectedGroups, group.group_id]
+                              : selectedGroups.filter(
+                                  (g) =>
+                                    parseInt(g) !== parseInt(group.group_id)
+                                )
+                          );
+                          setCurrentPage(1);
+                        }}
+                      />
+                      <label
+                        htmlFor={group._id}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {group.title}
+                      </label>
+                    </div>
+                  );
+                })}
+                {filteredGroups.length > 10 && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {filteredGroups.length - 10} more groups...
+                  </p>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Display Posts */}
@@ -220,8 +353,8 @@ export default function RealTimeFeed() {
           ) : (
             posts.map((post) => {
               const isoString = new Date(post.timestamp).toISOString();
-              const [date, time] = isoString.split("T"); // Splitting date and time
-              const formattedTime = time.split(".")[0]; // Removing milliseconds
+              const [date, time] = isoString.split("T");
+              const formattedTime = time.split(".")[0];
               return (
                 <Sheet key={post.id}>
                   <SheetTrigger asChild>

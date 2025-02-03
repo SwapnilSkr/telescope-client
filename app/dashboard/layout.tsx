@@ -3,8 +3,10 @@
 import { Sidebar } from "@/components/dashboard/sidebar";
 import useUserStore from "@/stores/userStore";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MobileMenu } from "@/components/dashboard/mobile-menu";
 
 export default function DashboardLayout({
   children,
@@ -13,7 +15,9 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { user, fetchUser } = useUserStore();
-  const [isLoading, setIsLoading] = useState(true); // Loading state
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Loading state
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -53,8 +57,28 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      <Sidebar className="hidden md:flex" />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white shadow-sm z-10">
+          <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          </div>
+        </header>
+        <MobileMenu
+          open={mobileMenuOpen}
+          setOpen={setMobileMenuOpen}
+          ref={mobileMenuRef}
+        />
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
+      </div>
     </div>
   );
 }

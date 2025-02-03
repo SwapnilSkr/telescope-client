@@ -1,10 +1,10 @@
-import { Fragment } from "react";
+import { Fragment, forwardRef } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Radio, Bell, Users } from "lucide-react"; // Updated import statement
+import { LayoutDashboard, Radio, Bell, Users } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Module Overview", href: "/dashboard" },
@@ -17,18 +17,20 @@ const menuItems = [
   },
 ];
 
-export function MobileMenu({
-  open,
-  setOpen,
-}: {
-  open: boolean;
-  setOpen: (open: boolean) => void;
-}) {
+export const MobileMenu = forwardRef<
+  HTMLDivElement,
+  { open: boolean; setOpen: (open: boolean) => void }
+>(({ open, setOpen }, ref) => {
   const pathname = usePathname();
 
   return (
     <Transition.Root show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50 md:hidden" onClose={setOpen}>
+      <Dialog
+        as="div"
+        className="relative z-50 md:hidden"
+        onClose={setOpen}
+        ref={ref}
+      >
         <Transition.Child
           as={Fragment}
           enter="transition-opacity ease-linear duration-300"
@@ -111,4 +113,5 @@ export function MobileMenu({
       </Dialog>
     </Transition.Root>
   );
-}
+});
+MobileMenu.displayName = "MobileMenu";
