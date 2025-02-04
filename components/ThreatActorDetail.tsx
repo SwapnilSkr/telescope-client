@@ -11,20 +11,31 @@ interface ThreatActorDetailProps {
     lastMessage: {
       content?: string;
       media?: { type: string; url: string } | null;
-      timestamp?: string;
+      timestamp: string;
     };
   };
 }
 
 export function ThreatActorDetail({ actor }: ThreatActorDetailProps) {
-  const hasLastMessage = actor.lastMessage && actor.lastMessage.timestamp;
-  const isoString = hasLastMessage
-    ? new Date(actor.lastMessage.timestamp!).toISOString()
-    : null;
-  const [date, time] = isoString ? isoString.split("T") : ["N/A", "N/A"];
-  const formattedTime = time ? time.split(".")[0] : "N/A";
+  const timestamp = actor.lastMessage.timestamp.endsWith("Z")
+    ? actor.lastMessage.timestamp
+    : `${actor.lastMessage.timestamp}Z`;
+  const utcDate = new Date(timestamp);
 
-  console.log("lastMessage", actor.lastMessage);
+  const istOptions: Intl.DateTimeFormatOptions = {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  };
+
+  // Use 'en-IN' locale for Indian date format (DD/MM/YYYY)
+  const istDate = new Intl.DateTimeFormat("en-IN", istOptions).format(utcDate);
+  const [date, time] = istDate.split(", ");
 
   return (
     <div className="space-y-6">
@@ -89,11 +100,7 @@ export function ThreatActorDetail({ actor }: ThreatActorDetailProps) {
           )}
 
           {/* Timestamp */}
-          <p className="text-sm text-gray-500 mt-2">
-            {hasLastMessage
-              ? `${date}, ${formattedTime}`
-              : "No timestamp available"}
-          </p>
+          <p className="text-sm text-gray-500 mt-2">{`${date}, ${time}`}</p>
         </div>
       </div>
     </div>

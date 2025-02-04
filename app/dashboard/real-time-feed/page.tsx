@@ -352,9 +352,30 @@ export default function RealTimeFeed() {
             <p className="text-center text-gray-500">No posts found.</p>
           ) : (
             posts.map((post) => {
-              const isoString = new Date(post.timestamp).toISOString();
-              const [date, time] = isoString.split("T");
-              const formattedTime = time.split(".")[0];
+              // Ensure timestamp is treated as UTC (add 'Z' if missing)
+              const timestamp = post.timestamp.endsWith("Z")
+                ? post.timestamp
+                : `${post.timestamp}Z`;
+              const utcDate = new Date(timestamp);
+
+              const istOptions: Intl.DateTimeFormatOptions = {
+                timeZone: "Asia/Kolkata",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              };
+
+              // Use 'en-IN' locale for Indian date format (DD/MM/YYYY)
+              const istDate = new Intl.DateTimeFormat(
+                "en-IN",
+                istOptions
+              ).format(utcDate);
+              const [date, time] = istDate.split(", ");
+
               return (
                 <Sheet key={post.id}>
                   <SheetTrigger asChild>
@@ -375,7 +396,7 @@ export default function RealTimeFeed() {
                             ))}
                           </div>
                           <span className="text-sm text-gray-500">
-                            {`${date}, ${formattedTime}`}
+                            {`${date}, ${time}`}
                           </span>
                         </div>
                       </CardContent>

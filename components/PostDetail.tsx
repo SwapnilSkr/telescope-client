@@ -21,15 +21,31 @@ interface PostDetailProps {
 }
 
 export function PostDetail({ post }: PostDetailProps) {
-  const isoString = new Date(post.timestamp).toISOString();
-  const [date, time] = isoString.split("T");
-  const formattedTime = time.split(".")[0];
+  const timestamp = post.timestamp.endsWith("Z")
+    ? post.timestamp
+    : `${post.timestamp}Z`;
+  const utcDate = new Date(timestamp);
+
+  const istOptions: Intl.DateTimeFormatOptions = {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  };
+
+  // Use 'en-IN' locale for Indian date format (DD/MM/YYYY)
+  const istDate = new Intl.DateTimeFormat("en-IN", istOptions).format(utcDate);
+  const [date, time] = istDate.split(", ");
 
   return (
     <ScrollArea className="max-h-[100vh] w-full p-4 overflow-y-auto rounded-lg border bg-white shadow-lg">
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">{post.channel}</h2>
-        <p className="text-gray-500">{`${date}, ${formattedTime}`}</p>
+        <p className="text-gray-500">{`${date}, ${time}`}</p>
         <p>{post.content}</p>
 
         {/* Tags Section */}
