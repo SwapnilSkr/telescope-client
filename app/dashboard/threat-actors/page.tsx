@@ -27,6 +27,7 @@ import { Plus } from "lucide-react";
 import { ThreatActorDetail } from "@/components/ThreatActorDetail";
 import { AddGroupModal } from "@/components/AddGroupModal";
 import { BASE_URL } from "@/utils/baseUrl";
+import { AddMultipleGroupsModal } from "@/components/AddMultipleGroupsModal";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -62,6 +63,8 @@ export default function ThreatActorLibrary() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
+  const [isAddMultipleGroupsModalOpen, setIsAddMultipleGroupsModalOpen] =
+    useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
 
   // Fetch categories for the dropdown
@@ -134,9 +137,9 @@ export default function ThreatActorLibrary() {
   const getCardColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-green-50 hover:bg-green-100";
+        return "bg-gray-50 hover:bg-gray-100";
       case "dormant":
-        return "bg-yellow-50 hover:bg-yellow-100";
+        return "bg-gray-200 hover:bg-gray-300";
       case "inactive":
         return "bg-red-50 hover:bg-red-100";
       default:
@@ -146,11 +149,16 @@ export default function ThreatActorLibrary() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex lg:flex-row flex-col justify-between items-center">
         <h1 className="text-3xl font-bold">Threat Actor Library</h1>
-        <Button onClick={() => setIsAddGroupModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add a Group
-        </Button>
+        <div className="flex gap-2 items-center">
+          <Button onClick={() => setIsAddGroupModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add a Group
+          </Button>
+          <Button onClick={() => setIsAddMultipleGroupsModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Multiple Groups
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -279,6 +287,10 @@ export default function ThreatActorLibrary() {
       <AddGroupModal
         isOpen={isAddGroupModalOpen}
         setIsOpen={setIsAddGroupModalOpen}
+      />
+      <AddMultipleGroupsModal
+        isOpen={isAddMultipleGroupsModalOpen}
+        setIsOpen={setIsAddMultipleGroupsModalOpen}
       />
     </div>
   );
