@@ -49,11 +49,14 @@ export default function ThreatActorLibrary() {
   // Get params from URL
   const initialSearch = searchParams.get("keyword") || "";
   const initialCategory = searchParams.get("category") || "All";
+  const initialStatus = searchParams.get("status") || "All";
   const initialPage = parseInt(searchParams.get("page") || "1", 10);
 
   // States
-  const [searchInput, setSearchInput] = useState<string>(initialSearch);
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [searchKeyword, setSearchKeyword] = useState<string>(initialSearch);
   const [selectedType, setSelectedType] = useState<string>(initialCategory);
+  const [selectedStatus, setSelectedStatus] = useState<string>(initialStatus);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [groups, setGroups] = useState<Group[]>([]);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -85,8 +88,9 @@ export default function ThreatActorLibrary() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchInput) params.set("keyword", searchInput);
+      if (searchKeyword) params.set("keyword", searchKeyword);
       if (selectedType !== "All") params.set("category", selectedType);
+      if (selectedStatus !== "All") params.set("status", selectedStatus);
       params.set("page", currentPage.toString());
       params.set("limit", ITEMS_PER_PAGE.toString());
 
@@ -102,14 +106,14 @@ export default function ThreatActorLibrary() {
       console.error("Error fetching groups:", error);
     }
     setLoading(false);
-  }, [searchInput, selectedType, currentPage]);
+  }, [searchKeyword, selectedType, selectedStatus, currentPage]);
 
-  console.log("totalPages", totalPages);
   // Update query params in URL
   const updateQueryParams = () => {
     const params = new URLSearchParams();
-    if (searchInput) params.set("keyword", searchInput);
+    if (searchKeyword) params.set("keyword", searchKeyword);
     if (selectedType !== "All") params.set("category", selectedType);
+    if (selectedStatus !== "All") params.set("status", selectedStatus);
     params.set("page", currentPage.toString());
     router.push(`?${params.toString()}`, { scroll: false });
   };
@@ -119,6 +123,12 @@ export default function ThreatActorLibrary() {
     fetchGroups();
     updateQueryParams();
   }, [fetchGroups]);
+
+  // Handle search button click
+  const handleSearch = () => {
+    setSearchKeyword(searchInput);
+    setCurrentPage(1);
+  };
 
   // Get card color based on status
   const getCardColor = (status: string) => {
@@ -143,7 +153,7 @@ export default function ThreatActorLibrary() {
         </Button>
       </div>
 
-      {/* Search & Filter */}
+      {/* Search */}
       <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
         <div className="flex-1 flex space-x-2">
           <Input
@@ -152,19 +162,47 @@ export default function ThreatActorLibrary() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="flex-1"
           />
+          <Button onClick={handleSearch}>Search</Button>
         </div>
-        <Select value={selectedType} onValueChange={setSelectedType}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+        {/* Filter by Type */}
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Filter by Type
+          </label>
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sort By Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Filter by Status */}
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Filter by Status
+          </label>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sort By Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="dormant">Dormant</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Display Groups */}
