@@ -2,6 +2,8 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState } from "react";
+import { BASE_URL } from "@/utils/baseUrl";
 
 interface PostDetailProps {
   post: {
@@ -21,6 +23,39 @@ interface PostDetailProps {
 }
 
 export function PostDetail({ post }: PostDetailProps) {
+  const [content, setContent] = useState(post.content);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [isTranslated, setIsTranslated] = useState(false);
+
+  const handleTranslate = async () => {
+    try {
+      setIsTranslating(true);
+      const response = await fetch(`${BASE_URL}/messages/translate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: post.id,
+          text: post.content,
+        }),
+      });
+
+      const data = await response.json();
+      setContent(data.translated_text);
+      setIsTranslated(true);
+    } catch (error) {
+      console.error("Translation failed:", error);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleShowOriginal = () => {
+    setContent(post.content);
+    setIsTranslated(false);
+  };
+
   const timestamp = post.timestamp.endsWith("Z")
     ? post.timestamp
     : `${post.timestamp}Z`;
@@ -44,9 +79,23 @@ export function PostDetail({ post }: PostDetailProps) {
   return (
     <ScrollArea className="max-h-[100vh] w-full p-4 overflow-y-auto rounded-lg border bg-white shadow-lg">
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold">{post.channel}</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">{post.channel}</h2>
+          <Button
+            onClick={isTranslated ? handleShowOriginal : handleTranslate}
+            disabled={isTranslating}
+            variant="outline"
+            size="sm"
+          >
+            {isTranslating
+              ? "Translating..."
+              : isTranslated
+                ? "Show Original"
+                : "Translate to English"}
+          </Button>
+        </div>
         <p className="text-gray-500">{`${date}, ${time}`}</p>
-        <p>{post.content}</p>
+        <p>{content}</p>
 
         {/* Tags Section */}
         <div className="flex flex-wrap gap-2">
