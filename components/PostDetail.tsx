@@ -72,20 +72,20 @@ export function PostDetail({ post }: PostDetailProps) {
     hour12: false,
   };
 
-  // Use 'en-IN' locale for Indian date format (DD/MM/YYYY)
   const istDate = new Intl.DateTimeFormat("en-IN", istOptions).format(utcDate);
   const [date, time] = istDate.split(", ");
 
   return (
-    <ScrollArea className="max-h-[100vh] w-full p-4 overflow-y-auto rounded-lg border bg-white shadow-lg">
+    <ScrollArea className="h-full w-full p-4 overflow-y-auto rounded-lg border bg-white shadow-lg">
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-2xl font-bold">{post.channel}</h2>
           <Button
             onClick={isTranslated ? handleShowOriginal : handleTranslate}
             disabled={isTranslating}
             variant="outline"
             size="sm"
+            className="w-full sm:w-auto"
           >
             {isTranslating
               ? "Translating..."
@@ -116,7 +116,7 @@ export function PostDetail({ post }: PostDetailProps) {
                 alt={post.media.alt || "Post image"}
                 width={400}
                 height={300}
-                className="rounded-lg"
+                className="w-full rounded-lg object-cover"
               />
             )}
             {post.media.type === "video" && (
@@ -130,7 +130,7 @@ export function PostDetail({ post }: PostDetailProps) {
               </video>
             )}
             {post.media.type === "file" && (
-              <Button asChild>
+              <Button asChild className="w-full sm:w-auto">
                 <a
                   href={post.media.url}
                   download={post.media.name}
