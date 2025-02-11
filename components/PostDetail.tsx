@@ -78,14 +78,14 @@ export function PostDetail({ post }: PostDetailProps) {
   return (
     <ScrollArea className="h-full w-full p-4 overflow-y-auto rounded-lg border bg-white shadow-lg">
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col justify-between items-center">
           <h2 className="text-2xl font-bold">{post.channel}</h2>
           <p className="text-gray-500">{`${date}, ${time}`}</p>
         </div>
 
         <p>{content}</p>
 
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <Button
             onClick={isTranslated ? handleShowOriginal : handleTranslate}
             disabled={isTranslating}
