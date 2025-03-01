@@ -7,7 +7,7 @@ import useUserStore from "@/stores/userStore";
 import { BASE_URL } from "@/utils/baseUrl";
 import LoginBackground from "@/public/Login_bg.png";
 import TelescopeLogo from "@/public/Telescopelogo.png";
-import ClosedEye from "@/public/Closed_eye.png";
+import ClosedEye from "@/public/closed_eye.png";
 import Shield from "@/public/attention_logo.png";
 import Image from "next/image";
 import { Eye } from "lucide-react";

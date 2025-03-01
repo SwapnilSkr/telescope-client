@@ -7,7 +7,7 @@ import Realtime from "@/public/realtime.png";
 import RealtimeFill from "@/public/realtimefill.png";
 import Alert from "@/public/alert.png";
 import AlertFill from "@/public/alertfill.png";
-import Threat from "@/public/threat.png";
+import Threat from "@/public/Threat.png";
 import ThreatFill from "@/public/threatfill.png";
 import Pricing from "@/public/pricing.png";
 import PricingFill from "@/public/pricingfill.png";
