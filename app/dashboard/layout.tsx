@@ -70,9 +70,9 @@ export default function DashboardLayout({
 
   if (isLoading)
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="flex h-screen items-center justify-center bg-[#111427]">
         <div className="flex flex-col items-center space-y-4">
-          <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full border-gray-600"></div>
+          <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full border-[#B435D4]"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -276,7 +276,6 @@ export default function DashboardLayout({
                     <div className="p-2">
                       <button
                         className="w-full text-left p-3 text-white rounded transition-colors flex items-center group"
-                        onClick={() => router.push("/dashboard/profile")}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"

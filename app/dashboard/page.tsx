@@ -13,7 +13,7 @@ import Proactive from "@/public/proactive.png";
 import Decision from "@/public/decision.png";
 import Image from "next/image";
 import { useState } from "react";
-import {  
+import {
   LineChart,
   Line,
   XAxis,
@@ -316,7 +316,9 @@ export default function ModuleOverview() {
                       </linearGradient>
                     </defs>
                   </svg>
-                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">Akira</p>
+                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">
+                    Akira
+                  </p>
                 </div>
                 <div className="flex items-center gap-[5px]">
                   <svg
@@ -334,7 +336,9 @@ export default function ModuleOverview() {
                       fill="#C893FD"
                     />
                   </svg>
-                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">Fog</p>
+                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">
+                    Fog
+                  </p>
                 </div>
                 <div className="flex items-center gap-[5px]">
                   <svg
@@ -352,7 +356,9 @@ export default function ModuleOverview() {
                       fill="#FF9458"
                     />
                   </svg>
-                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">FunkSec</p>
+                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">
+                    FunkSec
+                  </p>
                 </div>
                 <div className="select relative">
                   <select
@@ -360,7 +366,7 @@ export default function ModuleOverview() {
                     onChange={(e) => setTimeframe(e.target.value)}
                     style={{
                       color: "rgba(255, 255, 255, 0.90)",
-                      paddingRight: "28px"
+                      paddingRight: "28px",
                     }}
                     className="bg-[#443759] text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none"
                   >
@@ -368,7 +374,11 @@ export default function ModuleOverview() {
                     <option value="week">Weekly</option>
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <svg
+                      className="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
                       <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
@@ -470,78 +480,116 @@ export default function ModuleOverview() {
           }}
         >
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-medium text-white">Total Threats Triggered</h3>
+            <h3 className="text-xl font-medium text-white">
+              Total Threats Triggered
+            </h3>
             <div className="relative">
-              <select
-                className="bg-[#443759] text-white text-sm px-4 py-2 pr-10 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none"
-              >
+              <select className="bg-[#443759] text-white text-sm px-4 py-2 pr-10 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none">
                 <option>Last Week</option>
                 <option>Last Month</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <svg
+                  className="fill-current h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                >
                   <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                 </svg>
               </div>
             </div>
           </div>
-          
-          <div className="text-[#B435D4] text-4xl font-semibold mb-8">7,215</div>
-          
-          <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: "calc(100% - 140px)" }}>
+
+          <div className="text-[#B435D4] text-4xl font-semibold mb-8">
+            7,215
+          </div>
+
+          <div
+            className="space-y-4 overflow-y-auto pr-2"
+            style={{ maxHeight: "calc(100% - 140px)" }}
+          >
             {/* Phishing */}
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-6 h-6 rounded-full bg-[#B435D4] flex-shrink-0"></div>
-                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">Phishing</span>
+                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
+                  Phishing
+                </span>
                 <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                  <div className="h-full bg-gradient-to-r from-[#B435D4] to-[#D072E0] rounded-full" style={{ width: "40%" }}></div>
+                  <div
+                    className="h-full bg-gradient-to-r from-[#B435D4] to-[#D072E0] rounded-full"
+                    style={{ width: "40%" }}
+                  ></div>
                 </div>
-                <span className="text-[#B435D4] whitespace-nowrap w-10 text-right flex-shrink-0">40%</span>
+                <span className="text-[#B435D4] whitespace-nowrap w-10 text-right flex-shrink-0">
+                  40%
+                </span>
               </div>
               <div className="border-b border-[#2A2E3F]"></div>
             </div>
-            
+
             {/* Ransomware rows (using different progress values) */}
             {[35, 30, 28, 25, 15, 12, 20].map((value, index) => (
               <div key={index}>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-6 h-6 rounded-full bg-[#4A3AFF] flex-shrink-0"></div>
-                  <span className="text-white whitespace-nowrap w-24 flex-shrink-0">Ransomware</span>
+                  <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
+                    Ransomware
+                  </span>
                   <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                    <div 
-                      className={`h-full rounded-full ${index % 2 === 0 ? 'bg-[#4A3AFF]' : 'bg-gradient-to-r from-[#B435D4] to-[#4A3AFF]'}`} 
+                    <div
+                      className={`h-full rounded-full ${
+                        index % 2 === 0
+                          ? "bg-[#4A3AFF]"
+                          : "bg-gradient-to-r from-[#B435D4] to-[#4A3AFF]"
+                      }`}
                       style={{ width: `${value}%` }}
                     ></div>
                   </div>
-                  <span className="text-[#4A3AFF] whitespace-nowrap w-10 text-right flex-shrink-0">20%</span>
+                  <span className="text-[#4A3AFF] whitespace-nowrap w-10 text-right flex-shrink-0">
+                    20%
+                  </span>
                 </div>
                 <div className="border-b border-[#2A2E3F]"></div>
               </div>
             ))}
-            
+
             {/* DDoS */}
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-6 h-6 rounded-full bg-[#FF9458] flex-shrink-0"></div>
-                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">DDoS</span>
+                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
+                  DDoS
+                </span>
                 <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                  <div className="h-full bg-[#FF9458] rounded-full" style={{ width: "40%" }}></div>
+                  <div
+                    className="h-full bg-[#FF9458] rounded-full"
+                    style={{ width: "40%" }}
+                  ></div>
                 </div>
-                <span className="text-[#FF9458] whitespace-nowrap w-10 text-right flex-shrink-0">40%</span>
+                <span className="text-[#FF9458] whitespace-nowrap w-10 text-right flex-shrink-0">
+                  40%
+                </span>
               </div>
               <div className="border-b border-[#2A2E3F]"></div>
             </div>
-            
+
             {/* Others */}
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-6 h-6 rounded-full bg-[#8B85C1] flex-shrink-0"></div>
-                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">Others</span>
+                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
+                  Others
+                </span>
                 <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                  <div className="h-full bg-[#8B85C1] rounded-full" style={{ width: "20%" }}></div>
+                  <div
+                    className="h-full bg-[#8B85C1] rounded-full"
+                    style={{ width: "20%" }}
+                  ></div>
                 </div>
-                <span className="text-[#8B85C1] whitespace-nowrap w-10 text-right flex-shrink-0">20%</span>
+                <span className="text-[#8B85C1] whitespace-nowrap w-10 text-right flex-shrink-0">
+                  20%
+                </span>
               </div>
               <div className="border-b border-[#2A2E3F]"></div>
             </div>
@@ -552,141 +600,229 @@ export default function ModuleOverview() {
         <h1 className="text-3xl font-bold text-[#EBEBEB]">Module Overview</h1>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Cyber Module Card */}
-          <div className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
-          style={{
-            backgroundImage: `url(${ModuleMask.src})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
+          <div
+            className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
+            style={{
+              backgroundImage: `url(${ModuleMask.src})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
           >
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-[24px] text-white font-medium">Cyber Module</h2>
-              <span className="bg-[#6D3AFF] text-[#B435D4] px-4 py-1 rounded-full text-sm"
-              style={{
-                background: "rgba(180, 53, 212, 0.24)"
-              }}>
-                Active
+              <h2 className="text-[24px] text-white font-medium">CyberIQ</h2>
+              <span
+                className="bg-[#6D3AFF] text-[#B435D4] px-4 py-1 rounded-full text-sm"
+                style={{
+                  background: "rgba(180, 53, 212, 0.24)",
+                }}
+              >
+                Launching First
               </span>
             </div>
-            
+
             <div className="space-y-6 mt-auto">
               <div className="flex items-start gap-3">
                 <div className="mt-1">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 7.8C4 6.11984 4 5.27976 4.32698 4.63803C4.6146 4.07354 5.07354 3.6146 5.63803 3.32698C6.27976 3 7.11984 3 8.8 3H15.2C16.8802 3 17.7202 3 18.362 3.32698C18.9265 3.6146 19.3854 4.07354 19.673 4.63803C20 5.27976 20 6.11984 20 7.8V16.2C20 17.8802 20 18.7202 19.673 19.362C19.3854 19.9265 18.9265 20.3854 18.362 20.673C17.7202 21 16.8802 21 15.2 21H8.8C7.11984 21 6.27976 21 5.63803 20.673C5.07354 20.3854 4.6146 19.9265 4.32698 19.362C4 18.7202 4 17.8802 4 16.2V7.8Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 12H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 8H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 16H12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22"
+                    height="23"
+                    viewBox="0 0 22 23"
+                    fill="none"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M10.9079 0.591919C10.5579 0.591919 10.254 0.679086 9.97123 0.79431C9.71502 0.898711 9.42742 1.04768 9.11546 1.20926L2.21024 4.78522C1.67366 5.06302 1.18061 5.31828 0.829518 5.57074C0.466017 5.83213 0.00192084 6.26762 5.89225e-06 6.96245C-0.00190178 7.6573 0.459799 8.09527 0.821846 8.35859C1.17154 8.61291 1.66317 8.8708 2.19821 9.15145L9.09686 12.7711C9.41195 12.9364 9.70231 13.0888 9.96107 13.1957C10.2466 13.3135 10.5538 13.4027 10.9079 13.4027C11.2621 13.4027 11.5693 13.3135 11.8549 13.1957C12.1135 13.0889 12.4039 12.9364 12.7189 12.7711L19.6176 9.15151C20.1527 8.87083 20.6444 8.61293 20.994 8.35859C21.356 8.09527 21.8178 7.6573 21.8159 6.96245C21.8139 6.26762 21.3499 5.83213 20.9864 5.57074C20.6353 5.31827 20.1422 5.06301 19.6056 4.78521L12.7004 1.20925C12.3885 1.04768 12.1009 0.898711 11.8447 0.79431C11.5619 0.679086 11.258 0.591919 10.9079 0.591919ZM10.6919 2.51125C10.8406 2.45064 10.8902 2.4499 10.9079 2.4499C10.9256 2.4499 10.9753 2.45064 11.124 2.51125C11.2904 2.5791 11.501 2.68708 11.8556 2.87073L18.6678 6.39851C19.1582 6.65251 19.4901 6.82606 19.7188 6.96805C19.4909 7.11126 19.16 7.28659 18.671 7.54318L11.8654 11.114C11.5073 11.3019 11.2946 11.4124 11.1263 11.4819C10.9759 11.544 10.9258 11.5447 10.9079 11.5447C10.8901 11.5447 10.8399 11.544 10.6895 11.4819C10.5213 11.4124 10.3086 11.3019 9.95052 11.114L3.1449 7.54318C2.65586 7.28658 2.32502 7.11126 2.09712 6.96805C2.32581 6.82607 2.65761 6.65251 3.14806 6.39853L9.96026 2.87073C10.3149 2.68708 10.5254 2.5791 10.6919 2.51125Z"
+                      fill="#E3E3E3"
+                    />
+                    <path
+                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L21.3165 12.7164C21.7748 12.4736 21.9477 11.9099 21.7 11.4573C21.4529 11.0054 20.8816 10.8374 20.4239 11.0797L11.8713 15.6082C11.5108 15.7991 11.2965 15.9115 11.1271 15.9821C10.9755 16.0451 10.9249 16.0459 10.907 16.0459C10.8891 16.0459 10.8385 16.0451 10.687 15.9821C10.5175 15.9115 10.3033 15.7991 9.94281 15.6082L1.39023 11.0797Z"
+                      fill="#E3E3E3"
+                    />
+                    <path
+                      d="M1.39023 15.5836C0.932581 15.3413 0.361175 15.5094 0.114037 15.9612C-0.133544 16.4139 0.0392938 16.9776 0.497706 17.2202L9.08315 21.7663C9.40035 21.9343 9.69257 22.089 9.95305 22.1975C10.2405 22.3171 10.55 22.4078 10.907 22.4078C11.2641 22.4078 11.5736 22.3171 11.861 22.1975C12.1214 22.089 12.4136 21.9343 12.7308 21.7663L21.3165 17.2202C21.7748 16.9776 21.9477 16.4139 21.7 15.9612C21.4529 15.5094 20.8816 15.3413 20.4239 15.5836L11.8713 20.1122C11.5108 20.3031 11.2965 20.4154 11.1271 20.4861C10.9755 20.5491 10.9249 20.5498 10.907 20.5498C10.8891 20.5498 10.8385 20.5491 10.687 20.4861C10.5175 20.4154 10.3033 20.3031 9.94281 20.1122L1.39023 15.5836Z"
+                      fill="#E3E3E3"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-white text-lg font-medium">Real Time Feed</h3>
-                  <p className="text-[#999999] mt-1">Monitor posts from Telegram channels in real-time with advanced search and filtering capabilities.</p>
+                  <h3 className="text-white text-lg font-medium">
+                    Real Time Feed
+                  </h3>
+                  <p className="text-[#999999] mt-1">
+                    Monitor posts from Telegram channels in real-time with
+                    advanced search and filtering capabilities. Covers
+                    hacktivism, data breaches, ransomware groups, DDoS groups,
+                    and more, providing intelligence from over 1,000+ Telegram
+                    channels, groups, and discussion forums.
+                  </p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="mt-1">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 7.8C4 6.11984 4 5.27976 4.32698 4.63803C4.6146 4.07354 5.07354 3.6146 5.63803 3.32698C6.27976 3 7.11984 3 8.8 3H15.2C16.8802 3 17.7202 3 18.362 3.32698C18.9265 3.6146 19.3854 4.07354 19.673 4.63803C20 5.27976 20 6.11984 20 7.8V16.2C20 17.8802 20 18.7202 19.673 19.362C19.3854 19.9265 18.9265 20.3854 18.362 20.673C17.7202 21 16.8802 21 15.2 21H8.8C7.11984 21 6.27976 21 5.63803 20.673C5.07354 20.3854 4.6146 19.9265 4.32698 19.362C4 18.7202 4 17.8802 4 16.2V7.8Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 12H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 8H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 16H12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22"
+                    height="23"
+                    viewBox="0 0 22 23"
+                    fill="none"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M10.9079 0.591919C10.5579 0.591919 10.254 0.679086 9.97123 0.79431C9.71502 0.898711 9.42742 1.04768 9.11546 1.20926L2.21024 4.78522C1.67366 5.06302 1.18061 5.31828 0.829518 5.57074C0.466017 5.83213 0.00192084 6.26762 5.89225e-06 6.96245C-0.00190178 7.6573 0.459799 8.09527 0.821846 8.35859C1.17154 8.61291 1.66317 8.8708 2.19821 9.15145L9.09686 12.7711C9.41195 12.9364 9.70231 13.0888 9.96107 13.1957C10.2466 13.3135 10.5538 13.4027 10.9079 13.4027C11.2621 13.4027 11.5693 13.3135 11.8549 13.1957C12.1135 13.0889 12.4039 12.9364 12.7189 12.7711L19.6176 9.15151C20.1527 8.87083 20.6444 8.61293 20.994 8.35859C21.356 8.09527 21.8178 7.6573 21.8159 6.96245C21.8139 6.26762 21.3499 5.83213 20.9864 5.57074C20.6353 5.31827 20.1422 5.06301 19.6056 4.78521L12.7004 1.20925C12.3885 1.04768 12.1009 0.898711 11.8447 0.79431C11.5619 0.679086 11.258 0.591919 10.9079 0.591919ZM10.6919 2.51125C10.8406 2.45064 10.8902 2.4499 10.9079 2.4499C10.9256 2.4499 10.9753 2.45064 11.124 2.51125C11.2904 2.5791 11.501 2.68708 11.8556 2.87073L18.6678 6.39851C19.1582 6.65251 19.4901 6.82606 19.7188 6.96805C19.4909 7.11126 19.16 7.28659 18.671 7.54318L11.8654 11.114C11.5073 11.3019 11.2946 11.4124 11.1263 11.4819C10.9759 11.544 10.9258 11.5447 10.9079 11.5447C10.8901 11.5447 10.8399 11.544 10.6895 11.4819C10.5213 11.4124 10.3086 11.3019 9.95052 11.114L3.1449 7.54318C2.65586 7.28658 2.32502 7.11126 2.09712 6.96805C2.32581 6.82607 2.65761 6.65251 3.14806 6.39853L9.96026 2.87073C10.3149 2.68708 10.5254 2.5791 10.6919 2.51125Z"
+                      fill="#E3E3E3"
+                    />
+                    <path
+                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L21.3165 12.7164C21.7748 12.4736 21.9477 11.9099 21.7 11.4573C21.4529 11.0054 20.8816 10.8374 20.4239 11.0797L11.8713 15.6082C11.5108 15.7991 11.2965 15.9115 11.1271 15.9821C10.9755 16.0451 10.9249 16.0459 10.907 16.0459C10.8891 16.0459 10.8385 16.0451 10.687 15.9821C10.5175 15.9115 10.3033 15.7991 9.94281 15.6082L1.39023 11.0797Z"
+                      fill="#E3E3E3"
+                    />
+                    <path
+                      d="M1.39023 15.5836C0.932581 15.3413 0.361175 15.5094 0.114037 15.9612C-0.133544 16.4139 0.0392938 16.9776 0.497706 17.2202L9.08315 21.7663C9.40035 21.9343 9.69257 22.089 9.95305 22.1975C10.2405 22.3171 10.55 22.4078 10.907 22.4078C11.2641 22.4078 11.5736 22.3171 11.861 22.1975C12.1214 22.089 12.4136 21.9343 12.7308 21.7663L21.3165 17.2202C21.7748 16.9776 21.9477 16.4139 21.7 15.9612C21.4529 15.5094 20.8816 15.3413 20.4239 15.5836L11.8713 20.1122C11.5108 20.3031 11.2965 20.4154 11.1271 20.4861C10.9755 20.5491 10.9249 20.5498 10.907 20.5498C10.8891 20.5498 10.8385 20.5491 10.687 20.4861C10.5175 20.4154 10.3033 20.3031 9.94281 20.1122L1.39023 15.5836Z"
+                      fill="#E3E3E3"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-white text-lg font-medium">Alert Settings</h3>
-                  <p className="text-[#999999] mt-1">Configure custom alerts based on specific keywords, threats actors or types of threat</p>
+                  <h3 className="text-white text-lg font-medium">
+                    Alert Settings
+                  </h3>
+                  <p className="text-[#999999] mt-1">
+                    Configure custom alerts based on specific keywords, threats
+                    actors or types of threat
+                  </p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <div className="mt-1">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 7.8C4 6.11984 4 5.27976 4.32698 4.63803C4.6146 4.07354 5.07354 3.6146 5.63803 3.32698C6.27976 3 7.11984 3 8.8 3H15.2C16.8802 3 17.7202 3 18.362 3.32698C18.9265 3.6146 19.3854 4.07354 19.673 4.63803C20 5.27976 20 6.11984 20 7.8V16.2C20 17.8802 20 18.7202 19.673 19.362C19.3854 19.9265 18.9265 20.3854 18.362 20.673C17.7202 21 16.8802 21 15.2 21H8.8C7.11984 21 6.27976 21 5.63803 20.673C5.07354 20.3854 4.6146 19.9265 4.32698 19.362C4 18.7202 4 17.8802 4 16.2V7.8Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 12H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 8H16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M8 16H12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22"
+                    height="23"
+                    viewBox="0 0 22 23"
+                    fill="none"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M10.9079 0.591919C10.5579 0.591919 10.254 0.679086 9.97123 0.79431C9.71502 0.898711 9.42742 1.04768 9.11546 1.20926L2.21024 4.78522C1.67366 5.06302 1.18061 5.31828 0.829518 5.57074C0.466017 5.83213 0.00192084 6.26762 5.89225e-06 6.96245C-0.00190178 7.6573 0.459799 8.09527 0.821846 8.35859C1.17154 8.61291 1.66317 8.8708 2.19821 9.15145L9.09686 12.7711C9.41195 12.9364 9.70231 13.0888 9.96107 13.1957C10.2466 13.3135 10.5538 13.4027 10.9079 13.4027C11.2621 13.4027 11.5693 13.3135 11.8549 13.1957C12.1135 13.0889 12.4039 12.9364 12.7189 12.7711L19.6176 9.15151C20.1527 8.87083 20.6444 8.61293 20.994 8.35859C21.356 8.09527 21.8178 7.6573 21.8159 6.96245C21.8139 6.26762 21.3499 5.83213 20.9864 5.57074C20.6353 5.31827 20.1422 5.06301 19.6056 4.78521L12.7004 1.20925C12.3885 1.04768 12.1009 0.898711 11.8447 0.79431C11.5619 0.679086 11.258 0.591919 10.9079 0.591919ZM10.6919 2.51125C10.8406 2.45064 10.8902 2.4499 10.9079 2.4499C10.9256 2.4499 10.9753 2.45064 11.124 2.51125C11.2904 2.5791 11.501 2.68708 11.8556 2.87073L18.6678 6.39851C19.1582 6.65251 19.4901 6.82606 19.7188 6.96805C19.4909 7.11126 19.16 7.28659 18.671 7.54318L11.8654 11.114C11.5073 11.3019 11.2946 11.4124 11.1263 11.4819C10.9759 11.544 10.9258 11.5447 10.9079 11.5447C10.8901 11.5447 10.8399 11.544 10.6895 11.4819C10.5213 11.4124 10.3086 11.3019 9.95052 11.114L3.1449 7.54318C2.65586 7.28658 2.32502 7.11126 2.09712 6.96805C2.32581 6.82607 2.65761 6.65251 3.14806 6.39853L9.96026 2.87073C10.3149 2.68708 10.5254 2.5791 10.6919 2.51125Z"
+                      fill="#E3E3E3"
+                    />
+                    <path
+                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L21.3165 12.7164C21.7748 12.4736 21.9477 11.9099 21.7 11.4573C21.4529 11.0054 20.8816 10.8374 20.4239 11.0797L11.8713 15.6082C11.5108 15.7991 11.2965 15.9115 11.1271 15.9821C10.9755 16.0451 10.9249 16.0459 10.907 16.0459C10.8891 16.0459 10.8385 16.0451 10.687 15.9821C10.5175 15.9115 10.3033 15.7991 9.94281 15.6082L1.39023 11.0797Z"
+                      fill="#E3E3E3"
+                    />
+                    <path
+                      d="M1.39023 15.5836C0.932581 15.3413 0.361175 15.5094 0.114037 15.9612C-0.133544 16.4139 0.0392938 16.9776 0.497706 17.2202L9.08315 21.7663C9.40035 21.9343 9.69257 22.089 9.95305 22.1975C10.2405 22.3171 10.55 22.4078 10.907 22.4078C11.2641 22.4078 11.5736 22.3171 11.861 22.1975C12.1214 22.089 12.4136 21.9343 12.7308 21.7663L21.3165 17.2202C21.7748 16.9776 21.9477 16.4139 21.7 15.9612C21.4529 15.5094 20.8816 15.3413 20.4239 15.5836L11.8713 20.1122C11.5108 20.3031 11.2965 20.4154 11.1271 20.4861C10.9755 20.5491 10.9249 20.5498 10.907 20.5498C10.8891 20.5498 10.8385 20.5491 10.687 20.4861C10.5175 20.4154 10.3033 20.3031 9.94281 20.1122L1.39023 15.5836Z"
+                      fill="#E3E3E3"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-white text-lg font-medium">Threat Actor Library</h3>
-                  <p className="text-[#999999] mt-1">Access a comprehensive database of monitored threat actors with detailed profiles and activity timelines</p>
+                  <h3 className="text-white text-lg font-medium">
+                    Threat Actor Library
+                  </h3>
+                  <p className="text-[#999999] mt-1">
+                    Access a comprehensive database of monitored threat actors
+                    with detailed profiles and activity timelines
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-          
+
           {/* OSINT Module Card */}
-          <div className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
-          style={{
-            backgroundImage: `url(${ModuleMask.src})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
+          <div
+            className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
+            style={{
+              backgroundImage: `url(${ModuleMask.src})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
           >
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-[24px] text-white font-medium">OSINT Module</h2>
-              <span className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm" style={{
-                background: "rgba(169, 169, 169, 0.24)"
-              }}>
+              <h2 className="text-[24px] text-white font-medium">DiplomatIQ</h2>
+              <span
+                className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm"
+                style={{
+                  background: "rgba(169, 169, 169, 0.24)",
+                }}
+              >
                 Coming soon
               </span>
             </div>
-            
+
             <p className="text-[#999999] mb-[15px]">
-              Track Telegram groups and channels relevant to cyber threats and incidents
+              Focuses on geopolitical conflicts, military movements, and
+              diplomatic intelligence, tracking over 50,000+ Telegram sources.
             </p>
-            
+
             <div className="flex">
-              <button className="text-white px-6 py-3 text-sm" style={{
-                background: "rgba(255, 255, 255, 0.10)",
-                border: "1.389px solid #8310A0",
-                borderRadius: "9px",
-              }}>
+              <button
+                className="text-white px-6 py-3 text-sm"
+                style={{
+                  background: "rgba(255, 255, 255, 0.10)",
+                  border: "1.389px solid #8310A0",
+                  borderRadius: "9px",
+                }}
+              >
                 Request early Access
               </button>
             </div>
-            
+
             <div className="mt-12 text-[#413B58] text-[64px] font-bold opacity-10 tracking-wider text-center">
               Coming soon
             </div>
           </div>
-          
+
           {/* Crime Monitoring Module Card */}
-          <div className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
-          style={{
-            backgroundImage: `url(${ModuleMask.src})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
+          <div
+            className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
+            style={{
+              backgroundImage: `url(${ModuleMask.src})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
           >
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-[24px] text-white font-medium">Crime Monitoring Module</h2>
-              <span className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm" style={{
-                background: "rgba(169, 169, 169, 0.24)"
-              }}>
-                Coming soon
+            <div className="flex justify-between items-start mb-8">
+              <h2 className="text-[24px] text-white font-medium">
+                CyberCrimeIQ (Exclusive for Governments)
+              </h2>
+              <span
+                className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm"
+                style={{
+                  background: "rgba(169, 169, 169, 0.24)",
+                }}
+              >
+                Coming Soon
               </span>
             </div>
-            
+
             <p className="text-[#999999] mb-[15px]">
-              Track Telegram groups and channels relevant to cyber threats and incidents
+              Provides intelligence on criminal networks, including drugs, arms
+              trafficking, terror groups, human trafficking, and counterfeits,
+              covering 3,000+ Telegram groups.
             </p>
-            
+
             <div className="flex">
-              <button className="text-white px-6 py-3 text-sm" style={{
-                background: "rgba(255, 255, 255, 0.10)",
-                border: "1.389px solid #8310A0",
-                borderRadius: "9px",
-              }}>
+              <button
+                className="text-white px-6 py-3 text-sm"
+                style={{
+                  background: "rgba(255, 255, 255, 0.10)",
+                  border: "1.389px solid #8310A0",
+                  borderRadius: "9px",
+                }}
+              >
                 Request early Access
               </button>
             </div>
-            
+
             <div className="mt-12 text-[#413B58] text-[64px] font-bold opacity-10 tracking-wider text-center">
               Coming soon
             </div>
@@ -694,9 +830,9 @@ export default function ModuleOverview() {
         </div>
       </section>
 
-      <section className="bg-[#111427] border border-[#22263C] py-10 px-8 md:px-10 rounded-[26px] mt-8 h-[450px] relative overflow-hidden"
-      >
-        <div className="absolute inset-0 z-0"
+      <section className="bg-[#111427] border border-[#22263C] py-10 px-8 md:px-10 rounded-[26px] mt-8 h-[450px] relative overflow-hidden">
+        <div
+          className="absolute inset-0 z-0"
           style={{
             backgroundImage: `url(${EmpowerMask.src})`,
             backgroundSize: "cover",
@@ -705,51 +841,77 @@ export default function ModuleOverview() {
             opacity: 0.4,
           }}
         ></div>
-        
+
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row">
             <div className="md:w-[45%] xl:w-[35%] mb-8 md:mb-0">
               <h2 className="text-[28px] font-bold text-white leading-tight w-full">
-                Empowering your<br />
-                Cyber Security<br />
+                Empowering your
+                <br />
+                Cyber Security
+                <br />
                 Strategy
               </h2>
             </div>
-            
+
             <div className="md:w-3/4 grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Comprehensive Threat Intelligence */}
               <div>
                 <div className="mb-4 flex justify-center md:justify-start">
-                  <Image src={Comprehensive} alt="Comprehensive Threat Intelligence" width={48} height={48} />
+                  <Image
+                    src={Comprehensive}
+                    alt="Comprehensive Threat Intelligence"
+                    width={48}
+                    height={48}
+                  />
                 </div>
-                <h3 className="text-xl text-white font-semibold mb-2">Comprehensive Threat Intelligence</h3>
+                <h3 className="text-xl text-white font-semibold mb-2">
+                  Comprehensive Threat Intelligence
+                </h3>
                 <div className="h-1 w-36 bg-gradient-to-r from-[#A958E3] to-[#5D307D] rounded-full mb-3"></div>
                 <p className="text-gray-400 text-sm">
-                  Gain a holistic view of the threat landscape by combining data from multiple sources and modules.
+                  Gain a holistic view of the threat landscape by combining data
+                  from multiple sources and modules.
                 </p>
               </div>
-              
+
               {/* Proactive Risk Mitigation */}
               <div>
                 <div className="mb-4 flex justify-center md:justify-start">
-                  <Image src={Proactive} alt="Proactive Risk Mitigation" width={48} height={48} />
+                  <Image
+                    src={Proactive}
+                    alt="Proactive Risk Mitigation"
+                    width={48}
+                    height={48}
+                  />
                 </div>
-                <h3 className="text-xl text-white font-semibold mb-2">Proactive Risk Mitigation</h3>
+                <h3 className="text-xl text-white font-semibold mb-2">
+                  Proactive Risk Mitigation
+                </h3>
                 <div className="h-1 w-36 bg-gradient-to-r from-[#A958E3] to-[#5D307D] rounded-full mb-3"></div>
                 <p className="text-gray-400 text-sm">
-                  Stay ahead of potential threats with real-time alerts and actionable intelligence.
+                  Stay ahead of potential threats with real-time alerts and
+                  actionable intelligence.
                 </p>
               </div>
-              
+
               {/* Data-Driven Decision Making */}
               <div>
                 <div className="mb-4 flex justify-center md:justify-start">
-                  <Image src={Decision} alt="Data-Driven Decision Making" width={48} height={48} />
+                  <Image
+                    src={Decision}
+                    alt="Data-Driven Decision Making"
+                    width={48}
+                    height={48}
+                  />
                 </div>
-                <h3 className="text-xl text-white font-semibold mb-2">Data-Driven Decision Making</h3>
+                <h3 className="text-xl text-white font-semibold mb-2">
+                  Data-Driven Decision Making
+                </h3>
                 <div className="h-1 w-36 bg-gradient-to-r from-[#A958E3] to-[#5D307D] rounded-full mb-3"></div>
                 <p className="text-gray-400 text-sm">
-                  Leverage advanced analytics and visualization to make informed security decisions.
+                  Leverage advanced analytics and visualization to make informed
+                  security decisions.
                 </p>
               </div>
             </div>
