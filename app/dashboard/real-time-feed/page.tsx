@@ -354,6 +354,7 @@ export default function RealTimeFeed() {
       <div className="flex flex-wrap gap-2 w-full">
         {visibleTags.map((tag) => (
           <Badge
+            key={tag}
             className="text-[#A958E3] px-3 py-1 text-xs mb-2"
             style={{
               backgroundColor: "rgba(66, 12, 105, 0.84)",
