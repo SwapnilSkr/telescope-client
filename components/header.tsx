@@ -28,7 +28,7 @@ export default function Header() {
               </Link>
             ) : (
               <>
-                <Link href="/login" passHref>
+                <Link href="/" passHref>
                   <Button variant="ghost" className="mr-2">
                     Log in
                   </Button>

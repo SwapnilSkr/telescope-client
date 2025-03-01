@@ -1,56 +1,270 @@
-// app/landing/page.tsx
 "use client"; // Ensure this component runs only on the client side
 
-import { useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import useUserStore from "@/stores/userStore";
-import Header from "@/components/header";
-import Hero from "@/components/hero";
-import Features from "@/components/features";
-import CTA from "@/components/cta";
-import Contact from "@/components/contact";
+import { BASE_URL } from "@/utils/baseUrl";
+import LoginBackground from "@/public/Login_bg.png";
+import TelescopeLogo from "@/public/Telescopelogo.png";
+import ClosedEye from "@/public/Closed_eye.png";
+import FilledCheckbox from "@/public/filled_checkbox.png";
+import Shield from "@/public/attention_logo.png";
+import Image from "next/image";
+import { Eye } from "lucide-react";
 
-export default function LandingPage() {
-  const { fetchUser } = useUserStore();
+interface ApiResponse {
+  access_token: string;
+  user: {
+    email: string;
+    username: string;
+  };
+}
 
-  // Fetch user on page mount
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const { setUser, setAccessToken, user, fetchUser } = useUserStore();
+  const router = useRouter();
+
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
+  useEffect(() => {
+    if (user) {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    try {
+      const response = await fetch(`${BASE_URL}/authorize_account`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Login failed");
+      }
+
+      const data: ApiResponse = await response.json();
+      setUser(data.user);
+      setAccessToken(data.access_token);
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Login failed:", error);
+      setError(error instanceof Error ? error.message : "An error occurred");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main>
-        <Hero />
-        <Features />
-        <CTA />
-        <Contact />
-      </main>
-      <footer className="py-6 md:py-0 md:px-6 lg:px-10 md:h-24 border-t">
-        <div className="flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
-          <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-            Built by{" "}
-            <a
-              href="#"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium underline underline-offset-4"
-            >
-              Telescope
-            </a>
-            . The source code is available on{" "}
-            <a
-              href="#"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium underline underline-offset-4"
-            >
-              GitHub
-            </a>
-            .
-          </p>
+    <div
+      className="flex min-h-screen w-full justify-center overflow-hidden"
+      style={{
+        backgroundImage: `url(${LoginBackground.src})`,
+        backgroundSize: "cover",
+        backgroundColor: "#06002C",
+        backgroundPosition: "left center",
+        backgroundRepeat: "no-repeat",
+        height: "100vh",
+        width: "100vw",
+        margin: 0,
+        padding: 0,
+      }}
+    >
+      <div className="p-[100px] flex items-center justify-between w-full h-full">
+        <div className="login-title lg:block hidden text-white w-[50%] h-full py-[50px]">
+          <Image
+            src={TelescopeLogo}
+            alt="Telescope Logo"
+            width={200}
+            height={50}
+          />
+          <div className="mt-[80px] text-[35px] xl:text-[45px] font-[500]">
+            Track, Analyze & Stay
+          </div>
+          <div className="text-[35px] xl:text-[45px] font-[500]">Ahead of Cyber Threats</div>
+          <div className="xl:mt-[80px] mt-[40px] flex flex-col justify-center gap-y-[50px]">
+            <div className="flex items-center gap-x-[10px]">
+              <Image src={Shield} alt="Shield" width={45} height={45} />
+              <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
+              Access a comprehensive database of monitored threat actors 
+              </p>
+            </div>
+            <div className="flex items-center gap-x-[10px]">
+              <Image src={Shield} alt="Shield" width={45} height={45} />
+              <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
+              Access a comprehensive database of monitored threat actors 
+              </p>
+            </div>
+            <div className="flex items-center gap-x-[10px]">
+              <Image src={Shield} alt="Shield" width={45} height={45} />
+              <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
+              Access a comprehensive database of monitored threat actors 
+              </p>
+            </div>
+          </div>
         </div>
-      </footer>
+        <div className="form text-white lg:w-[45%] w-full h-full">
+          <div
+            className="p-[40px] xl:p-[80px] rounded-lg h-full"
+            style={{
+              background:
+                "linear-gradient(321deg, rgba(191, 191, 191, 0.06) 5.98%, rgba(0, 0, 0, 0.00) 66.28%), rgba(255, 255, 255, 0.04)",
+              border: "1px solid #AFAFAF",
+              boxShadow: "0px 0px 15px 0px rgba(0, 0, 0, 0.24)",
+              borderRadius: "20px",
+              backdropFilter: "blur(26.5px)",
+            }}
+          >
+            <div className="mb-[50px]" style={{ lineHeight: "1.5" }}>
+              <p className="text-[36px] font-[500] text-center">Welcome Back</p>
+              <p className="text-[16px] font-[400] text-center">
+                Enter your email to sign in to your account
+              </p>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-[25px]">
+                <input
+                  id="email"
+                  placeholder="Email address"
+                  type="email"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect="off"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  style={{
+                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    borderRadius: "12px",
+                  }}
+                />
+              </div>
+              <div className="relative">
+                <input
+                  id="password"
+                  placeholder="Password"
+                  type={showPassword ? "text" : "password"}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  style={{
+                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    borderRadius: "12px",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-6 transform -translate-y-1/2 cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <Eye size={20} color="white" />
+                  ) : (
+                    <Image
+                      src={ClosedEye}
+                      alt="Show password"
+                      width={20}
+                      height={20}
+                    />
+                  )}
+                </button>
+              </div>
+              {error && <p className="text-sm text-red-400">{error}</p>}
+              <div className="remember-me mt-[15px] flex items-center gap-[10px]">
+                <div
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className={`w-5 h-5 border border-white/30 rounded cursor-pointer flex items-center justify-center overflow-hidden ${
+                    rememberMe ? "p-0" : "bg-transparent"
+                  }`}
+                  role="checkbox"
+                  aria-checked={rememberMe}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      setRememberMe(!rememberMe);
+                    }
+                  }}
+                >
+                  {rememberMe && (
+                    <Image
+                      src={FilledCheckbox}
+                      alt="Checked"
+                      className="object-cover w-[24px] h-[24px] rounded"
+                      style={{ display: "block" }}
+                    />
+                  )}
+                </div>
+                <label
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className="cursor-pointer"
+                >
+                  Remember me
+                </label>
+              </div>
+              <button
+                type="submit"
+                className="w-full text-white"
+                style={{
+                  background:
+                    "linear-gradient(89deg, #A958E3 -2.61%, #8B0EE5 53.73%, #6908AE 116.23%)",
+                  borderRadius: "12px",
+                  padding: "10px",
+                  fontSize: "20px",
+                  fontWeight: "500",
+                  marginTop: "25px",
+                }}
+              >
+                Sign In
+              </button>
+              <div
+                className="flex justify-center"
+                style={{ marginBottom: "50px", marginTop: "10px" }}
+              >
+                <Link
+                  href="/forgot-password"
+                  className="forgot-password text-white text-center text-[16px] font-[400]"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+              <p className="text-center text-[20px] text-white font-[500]">
+                Don&apos;t have an account?{" "}
+                <Link href="/signup" className="text-[#BC69F7]">
+                  Sign Up
+                </Link>
+              </p>
+              <div className="terms support care flex justify-center gap-[20px] mt-[10px]">
+                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
+                  Terms & Conditions
+                </p>
+                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
+                  Support
+                </p>
+                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
+                  Customer Care
+                </p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

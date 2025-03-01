@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 
 interface ThreatActorDetailProps {
@@ -17,92 +18,140 @@ interface ThreatActorDetailProps {
 }
 
 export function ThreatActorDetail({ actor }: ThreatActorDetailProps) {
-  const timestamp = actor.lastMessage.timestamp.endsWith("Z")
-    ? actor.lastMessage.timestamp
-    : `${actor.lastMessage.timestamp}Z`;
-  const utcDate = new Date(timestamp);
-
-  const istOptions: Intl.DateTimeFormatOptions = {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  };
-
-  // Use 'en-IN' locale for Indian date format (DD/MM/YYYY)
-  const istDate = new Intl.DateTimeFormat("en-IN", istOptions).format(utcDate);
-  const [date, time] = istDate.split(", ");
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold">{actor.name}</h2>
-        <div className="flex items-center space-x-2 mt-2">
-          <Badge variant="outline">{actor.type}</Badge>
-          <Badge variant={actor.status === "Active" ? "default" : "secondary"}>
-            {actor.status}
-          </Badge>
+    <ScrollArea
+      className="h-full w-full overflow-y-auto text-white"
+      style={{
+        background:
+          "linear-gradient(0deg, #1A1E34 0%, #1A1E34 100%), lightgray -3246.934px 0px / 384.569% 100% no-repeat",
+      }}
+    >
+      <div className="p-6 space-y-6">
+        {/* Header with name and badges */}
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold text-white">{actor.name}</h2>
+
+          <div className="flex items-center space-x-2">
+            <Badge
+              className="text-[#A958E3] px-3 py-1 text-xs"
+              style={{
+                backgroundColor: "rgba(66, 12, 105, 0.84)",
+                border: "0.426px solid rgba(255, 255, 255, 0.16)",
+                borderRadius: "80px",
+              }}
+            >
+              {actor.type}
+            </Badge>
+            <Badge
+              className={`px-3 py-1 text-xs ${
+                actor.status === "Active"
+                  ? "bg-red-800/50 text-red-400"
+                  : "bg-gray-700/50 text-gray-300"
+              }`}
+              style={{
+                borderRadius: "80px",
+              }}
+            >
+              {actor.status}
+            </Badge>
+          </div>
         </div>
-      </div>
 
-      {/* Message Count */}
-      <div className="bg-gray-100 p-4 rounded-lg">
-        <p className="text-sm text-gray-500 mb-1">Message Count</p>
-        <p className="text-2xl font-bold">{actor.messageCount}</p>
-      </div>
+        {/* Separator line */}
+        <hr className="border-t border-slate-700/50" />
 
-      {/* Last Recorded Message */}
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Last Recorded Message</h3>
-        <div className="bg-gray-100 p-4 rounded-lg">
+        {/* Message Count */}
+        <div
+          className="p-6"
+          style={{
+            borderRadius: "20px",
+            border: "1.411px solid rgba(255, 255, 255, 0.03)",
+            background: "rgba(17, 20, 39, 0.60)",
+            backdropFilter: "blur(16.92917823791504px)",
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <span className="text-purple-400 mr-4">Message Count</span>
+            <span className="text-4xl font-bold text-white">
+              {actor.messageCount}
+            </span>
+          </div>
+        </div>
+
+        {/* Last Recorded Message - EVERYTHING inside the box */}
+        <div
+          className="p-6"
+          style={{
+            borderRadius: "20px",
+            border: "1.411px solid rgba(255, 255, 255, 0.03)",
+            background: "rgba(17, 20, 39, 0.60)",
+            backdropFilter: "blur(16.92917823791504px)",
+          }}
+        >
+          <h3 className="text-purple-400 mb-4">Last Recorded Message</h3>
+
           {/* Message Content */}
           {actor.lastMessage?.content ? (
-            <p className="mb-2">{actor.lastMessage.content}</p>
+            <p className="text-white text-lg leading-relaxed mb-6">
+              {actor.lastMessage.content}
+            </p>
           ) : (
-            <p className="text-gray-500 italic">
+            <p className="text-gray-500 italic mb-6">
               No message content available.
             </p>
           )}
 
-          {/* Media Preview (Image/Video/File) */}
+          {/* Media Preview with natural dimensions */}
           {actor.lastMessage?.media?.url && (
-            <div className="mt-2">
+            <div className="overflow-auto">
               {actor.lastMessage.media.type === "image" ? (
-                <Image
-                  className="rounded-md w-full mt-2"
-                  src={actor.lastMessage.media.url}
-                  alt="Group media"
-                  width={600}
-                  height={400}
-                />
+                <div className="rounded-lg">
+                  <Image
+                    className="object-contain"
+                    src={actor.lastMessage.media.url}
+                    alt="Threat actor media"
+                    width={800}
+                    height={600}
+                    style={{ width: "auto", height: "auto" }}
+                    unoptimized={true}
+                  />
+                </div>
               ) : actor.lastMessage.media.type === "video" ? (
-                <video
-                  className="rounded-md w-full mt-2"
-                  controls
-                  src={actor.lastMessage.media.url}
-                />
+                <div className="rounded-lg">
+                  <video
+                    controls
+                    className="max-w-full"
+                    src={actor.lastMessage.media.url}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
               ) : (
                 <a
                   href={actor.lastMessage.media.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 underline"
+                  className="inline-flex items-center bg-purple-900 hover:bg-purple-800 text-white px-4 py-2 rounded-md"
                 >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                   Download File
                 </a>
               )}
             </div>
           )}
-
-          {/* Timestamp */}
-          <p className="text-sm text-gray-500 mt-2">{`${date}, ${time}`}</p>
         </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 }
