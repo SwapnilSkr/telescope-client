@@ -34,7 +34,7 @@ const menuItems = [
   { icon: Realtime, fillIcon: RealtimeFill, label: "Real-Time Feed", href: "/dashboard/real-time-feed" },
   { icon: Alert, fillIcon: AlertFill, label: "Alert Settings", href: "/dashboard/alert-settings" },
   { icon: Threat, fillIcon: ThreatFill, label: "Threat Actor Library", href: "/dashboard/threat-actors" },
-  { icon: Pricing, fillIcon: PricingFill, label: "Pricing", href: "/dashboard/pricing" },
+  // { icon: Pricing, fillIcon: PricingFill, label: "Pricing", href: "/dashboard/pricing" },
 ];
 
 export function Sidebar({ className }: { className?: string }) {

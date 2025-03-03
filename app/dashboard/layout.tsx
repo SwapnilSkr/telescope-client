@@ -29,6 +29,10 @@ export default function DashboardLayout({
   const notificationBtnRef = useRef<HTMLDivElement>(null);
   const profileBtnRef = useRef<HTMLDivElement>(null);
 
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(prevState => !prevState);
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       await fetchUser();
@@ -274,9 +278,7 @@ export default function DashboardLayout({
                       <p className="text-white font-medium">{user?.username}</p>
                     </div>
                     <div className="p-2">
-                      <button
-                        className="w-full text-left p-3 text-white rounded transition-colors flex items-center group"
-                      >
+                      <button className="w-full text-left p-3 text-white rounded transition-colors flex items-center group">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5 mr-3 text-white group-hover:text-[#B435D4]"
@@ -351,16 +353,15 @@ export default function DashboardLayout({
                   </div>
                 )}
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden rounded-full text-white hover:bg-[#1A1A2E] hover:text-[#B435D4]"
+                onClick={toggleMobileMenu}
+              >
+                <Menu className="h-6 w-6" />
+              </Button>
             </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden bg-white rounded-full p-2"
-              onClick={() => setMobileMenuOpen(true)}
-            >
-              <Menu className="h-6 w-6" />
-            </Button>
           </div>
         </header>
         <MobileMenu
