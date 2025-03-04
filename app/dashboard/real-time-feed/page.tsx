@@ -100,11 +100,16 @@ export default function RealTimeFeed() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const accessToken = localStorage.getItem("access_token");
 
   // Fetch groups
   const fetchGroups = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/groups`);
+      const response = await fetch(`${BASE_URL}/groups`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch groups");
 
       const data = await response.json();
@@ -194,7 +199,12 @@ export default function RealTimeFeed() {
       }
 
       const response = await fetch(
-        `${BASE_URL}/messages/search?${params.toString()}`
+        `${BASE_URL}/messages/search?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
       );
       if (!response.ok) throw new Error("Failed to fetch posts");
 

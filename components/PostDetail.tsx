@@ -26,6 +26,7 @@ export function PostDetail({ post }: PostDetailProps) {
   const [content, setContent] = useState(post.content);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslated, setIsTranslated] = useState(false);
+  const accessToken = localStorage.getItem("accessToken");
 
   const handleTranslate = async () => {
     try {
@@ -34,6 +35,7 @@ export function PostDetail({ post }: PostDetailProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           id: post.id,

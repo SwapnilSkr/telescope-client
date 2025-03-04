@@ -38,6 +38,7 @@ interface Group {
 export default function ThreatActorLibrary() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const accessToken = localStorage.getItem("access_token");
 
   // Get params from URL
   const initialSearch = searchParams.get("keyword") || "";
@@ -63,7 +64,11 @@ export default function ThreatActorLibrary() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/categories`);
+        const response = await fetch(`${BASE_URL}/categories`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
         if (!response.ok) throw new Error("Failed to fetch categories");
 
         const data = await response.json();
@@ -90,7 +95,12 @@ export default function ThreatActorLibrary() {
       params.set("limit", ITEMS_PER_PAGE.toString());
 
       const response = await fetch(
-        `${BASE_URL}/groups/search?${params.toString()}`
+        `${BASE_URL}/groups/search?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
       );
       if (!response.ok) throw new Error("Failed to fetch groups");
 
