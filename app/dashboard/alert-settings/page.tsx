@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast, Toaster } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +19,7 @@ import { TeamsSvg } from "@/components/svgs/TeamsSvg";
 import { SlackSvg } from "@/components/svgs/SlackSvg";
 import { WebhookSvg } from "@/components/svgs/Webhook";
 import { APISvg } from "@/components/svgs/APISvg";
+import { BASE_URL } from "@/utils/baseUrl";
 
 export default function AlertSettings() {
   const [keyword, setKeyword] = useState("");
@@ -29,7 +31,10 @@ export default function AlertSettings() {
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasExistingSettings, setHasExistingSettings] = useState(false);
+  const accessToken = localStorage.getItem("access_token");
 
   const alertTypes = [
     { id: "ransomware", label: "Ransomware" },
@@ -64,6 +69,42 @@ export default function AlertSettings() {
       svg: <APISvg />,
     },
   ]);
+
+  // Fetch existing alert settings when component mounts
+  useEffect(() => {
+    const fetchAlertSettings = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/alerts`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch alert settings');
+        }
+
+        const data = await response.json();
+
+        // If alert settings exist, populate the form and set flag
+        if (data.status === 'success' && data.data) {
+          setKeyword(data.data.keyword || '');
+          setSelectedAlertTypes(data.data.alert_types || []);
+          setFrequency(data.data.frequency || '');
+          setHasExistingSettings(true);
+        }
+      } catch (error) {
+        console.error('Error fetching alert settings:', error);
+        // Don't show error to user as this might be their first time setting up alerts
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAlertSettings();
+  }, [accessToken]);
 
   const toggleAlertType = (typeId: string) => {
     setSelectedAlertTypes((prev) =>
@@ -104,31 +145,59 @@ export default function AlertSettings() {
       )
     );
 
+    toast.success(`${currentIntegration.label} Connected`, {
+      description: `${currentIntegration.label} has been successfully connected.`,
+      duration: 3000,
+    });
+
     closeModal();
   };
 
   const handleUpdateIntegration = () => {
     // In a real app, you would update the integration with new credentials
-    // For now, we'll just close the modal
+    
+    toast.success(`${currentIntegration.label} Updated`, {
+      description: `${currentIntegration.label} credentials have been updated.`,
+      duration: 3000,
+    });
+    
+    closeModal();
+  };
+
+  const handleDisconnectIntegration = () => {
+    setIntegrationTypes((prevIntegrations) =>
+      prevIntegrations.map((integration) =>
+        integration.id === currentIntegration.id
+          ? { ...integration, connected: false }
+          : integration
+      )
+    );
+
+    toast.error(`${currentIntegration.label} Disconnected`, {
+      description: `${currentIntegration.label} has been disconnected.`,
+      duration: 3000,
+    });
+    
     closeModal();
   };
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!keyword.trim()) {
-      alert("Please enter a keyword or threat actor name");
+      setError("Please enter a keyword or threat actor name");
       return;
     }
     
     if (selectedAlertTypes.length === 0) {
-      alert("Please select at least one alert type");
+      setError("Please select at least one alert type");
       return;
     }
     
     if (!frequency) {
-      alert("Please select an alert frequency");
+      setError("Please select an alert frequency");
       return;
     }
     
@@ -142,38 +211,68 @@ export default function AlertSettings() {
         frequency,
       };
       
-      // Simulating an API call
-      console.log("Submitting data to API:", alertSettingsData);
+      // Send data to the API
+      const response = await fetch(`${BASE_URL}/alerts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(alertSettingsData),
+      });
       
-      // In a real application, you would use fetch or axios to send the data
-      // Example:
-      // const response = await fetch('/api/alert-settings', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(alertSettingsData),
-      // });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to save alert settings');
+      }
       
-      // if (!response.ok) {
-      //   throw new Error('Failed to save alert settings');
-      // }
+      const responseData = await response.json();
       
-      // For demo purposes, we'll simulate a successful response
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setSubmitSuccess(true);
-      setTimeout(() => setSubmitSuccess(false), 3000);
+      if (responseData.status === 'success') {
+        // Update the flag to indicate user now has settings
+        setHasExistingSettings(true);
+        
+        // Show success message based on create/update
+        const actionVerb = responseData.message.includes("created") ? "created" : "updated";
+        
+        toast.success(`Alert Settings ${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)}`, {
+          description: `Your alert settings have been successfully ${actionVerb}.`,
+          duration: 3000,
+        });
+      } else {
+        throw new Error(responseData.message || 'Failed to save alert settings');
+      }
     } catch (error) {
       console.error("Error saving alert settings:", error);
-      alert("Failed to save alert settings. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save alert settings. Please try again.';
+      
+      toast.error("Error", {
+        description: errorMessage,
+        action: {
+          label: "Try Again",
+          onClick: () => handleSubmit(e),
+        },
+      });
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="text-white min-h-screen flex items-center justify-center">
+        <div className="text-xl">Loading alert settings...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="text-white min-h-screen">
+      {/* Add the Sonner Toaster component */}
+      <Toaster position="top-right" richColors />
+      
       <h1 className="text-3xl font-bold mb-6">Custom Alert Settings</h1>
 
       <form onSubmit={handleSubmit}>
@@ -183,6 +282,12 @@ export default function AlertSettings() {
           backgroundPosition: 'center',
           border: "1px solid #22263C",
         }}>
+          {error && (
+            <div className="bg-red-500 text-white p-3 rounded-lg text-center">
+              {error}
+            </div>
+          )}
+
           <div>
             <p className="text-base font-medium mb-2">
               Search Keyword or threat actor
@@ -235,7 +340,7 @@ export default function AlertSettings() {
                       className={
                         selectedAlertTypes.includes(type.id)
                           ? "bg-purple-600 border-purple-600"
-                          : "border-purple-600"
+                          : ""
                       }
                       onCheckedChange={() => toggleAlertType(type.id)}
                     />
@@ -341,15 +446,9 @@ export default function AlertSettings() {
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-6"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Saving..." : "Save Alert Settings"}
+              {isSubmitting ? "Saving..." : hasExistingSettings ? "Update Alert Settings" : "Save Alert Settings"}
             </Button>
           </div>
-          
-          {submitSuccess && (
-            <div className="bg-green-600 text-white p-3 rounded-lg text-center">
-              Alert settings saved successfully!
-            </div>
-          )}
         </div>
       </form>
 
@@ -481,17 +580,7 @@ export default function AlertSettings() {
                 <Button
                   type="button"
                   className="bg-transparent hover:bg-[#2a2a40] border border-gray-600 text-white px-6"
-                  onClick={() => {
-                    // Add confirmation dialog in a real app
-                    setIntegrationTypes((prevIntegrations) =>
-                      prevIntegrations.map((integration) =>
-                        integration.id === currentIntegration.id
-                          ? { ...integration, connected: false }
-                          : integration
-                      )
-                    );
-                    closeModal();
-                  }}
+                  onClick={handleDisconnectIntegration}
                 >
                   Disconnect
                 </Button>
