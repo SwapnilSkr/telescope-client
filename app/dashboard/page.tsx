@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { Radio, Bell, Users, BarChart, Shield, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
 import GroupMask from "@/public/groupmask.png";
 import GroupMaskChart from "@/public/groupmaskchart.png";
 import GroupMaskThreat from "@/public/groupmaskthreat.png";
@@ -12,7 +13,6 @@ import Comprehensive from "@/public/comprehensive.png";
 import Proactive from "@/public/proactive.png";
 import Decision from "@/public/decision.png";
 import Image from "next/image";
-import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -22,6 +22,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { BASE_URL } from "@/utils/baseUrl";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const MonitorLogo = () => {
   return (
@@ -67,70 +69,89 @@ const ExclamationLogo = () => {
   );
 };
 
-const modules = [
-  {
-    name: "Cyber Module",
-    description:
-      "Track Telegram groups and channels relevant to cyber threats and incidents.",
-    status: "Active",
-    features: [
-      {
-        name: "Real-Time Feed",
-        description:
-          "Monitor posts from Telegram channels in real-time with advanced search and filtering capabilities.",
-        icon: Radio,
-      },
-      {
-        name: "Alert Settings",
-        description:
-          "Configure custom alerts based on specific keywords, threat actors, or types of threats.",
-        icon: Bell,
-      },
-      {
-        name: "Threat Actor Library",
-        description:
-          "Access a comprehensive database of monitored threat actors with detailed profiles and activity timelines.",
-        icon: Users,
-      },
-    ],
-  },
-  {
-    name: "OSINT Module",
-    description:
-      "Monitor open-source intelligence channels for comprehensive OSINT analysis.",
-    status: "Coming Soon",
-  },
-  {
-    name: "Crime Monitoring Module",
-    description:
-      "Keep tabs on criminal activities across various Telegram channels.",
-    status: "Coming Soon",
-  },
-];
-
-const platformBenefits = [
-  {
-    title: "Comprehensive Threat Intelligence",
-    description:
-      "Gain a holistic view of the threat landscape by combining data from multiple sources and modules.",
-    icon: Shield,
-  },
-  {
-    title: "Proactive Risk Mitigation",
-    description:
-      "Stay ahead of potential threats with real-time alerts and actionable intelligence.",
-    icon: Zap,
-  },
-  {
-    title: "Data-Driven Decision Making",
-    description:
-      "Leverage advanced analytics and visualizations to make informed security decisions.",
-    icon: BarChart,
-  },
-];
+// Define types for our API responses
+interface AlertType {
+  alert_type: string;
+  count: number;
+  percentage: number;
+  total_count: number;
+}
 
 export default function ModuleOverview() {
   const [timeframe, setTimeframe] = useState("month");
+  const [threatCount, setThreatCount] = useState(0);
+  const [alertPercentages, setAlertPercentages] = useState<AlertType[]>([]);
+  const [threatsTriggered, setThreatsTriggered] = useState(0);
+  const [alertTimePeriod, setAlertTimePeriod] = useState("weekly");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingThreatCount, setIsLoadingThreatCount] = useState(true);
+  const [isLoadingAlertTypes, setIsLoadingAlertTypes] = useState(true);
+  const accessToken = localStorage.getItem("access_token");
+
+  // Fetch threat count
+  useEffect(() => {
+    const fetchThreatCount = async () => {
+      setIsLoadingThreatCount(true);
+      try {
+        const countResponse = await fetch(`${BASE_URL}/threat-count`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const countData = await countResponse.json();
+        setThreatCount(countData.count);
+      } catch (error) {
+        console.error("Error fetching threat count:", error);
+      } finally {
+        setIsLoadingThreatCount(false);
+      }
+    };
+
+    fetchThreatCount();
+  }, []);
+
+  // Fetch alert type percentages
+  useEffect(() => {
+    const fetchAlertPercentages = async () => {
+      setIsLoadingAlertTypes(true);
+      try {
+        const percentagesResponse = await fetch(`${BASE_URL}/alert-types-percentage?time_period=${alertTimePeriod}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const percentagesData = await percentagesResponse.json();
+        
+        if (alertTimePeriod === 'all') {
+          setAlertPercentages(percentagesData);
+          // For "all" time period, use the total threat count
+          setThreatsTriggered(threatCount);
+        } else {
+          // If we have time-based data, use the most recent period's data
+          if (percentagesData.length > 0) {
+            setAlertPercentages(percentagesData[0].alert_types);
+            setThreatsTriggered(percentagesData[0].total_count);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching alert percentages:", error);
+      } finally {
+        setIsLoadingAlertTypes(false);
+      }
+    };
+
+    fetchAlertPercentages();
+  }, [alertTimePeriod, threatCount]);
+
+  // Combined loading state for UI components that need both data
+  useEffect(() => {
+    setIsLoading(isLoadingThreatCount || isLoadingAlertTypes);
+  }, [isLoadingThreatCount, isLoadingAlertTypes]);
+
+  // Handle time period change for alert types
+  const handleAlertTimePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAlertTimePeriod(e.target.value);
+  };
 
   // Monthly data (existing)
   const monthlyData = [
@@ -158,6 +179,36 @@ export default function ModuleOverview() {
 
   // Choose the right dataset based on timeframe
   const chartData = timeframe === "month" ? monthlyData : weeklyData;
+
+  // Render skeleton for threat count
+  const renderThreatCountSkeleton = () => (
+    <>
+      <Skeleton className="h-[40px] w-[120px] bg-[#2A2E3F] mb-2" />
+      <div className="flex items-center gap-[2px]">
+        <Skeleton className="h-[24px] w-[24px] bg-[#2A2E3F]" />
+        <Skeleton className="h-[15px] w-[30px] bg-[#2A2E3F]" />
+        <Skeleton className="h-[15px] w-[80px] bg-[#2A2E3F] ml-[5px]" />
+      </div>
+    </>
+  );
+
+  // Render skeleton for alert types
+  const renderAlertTypesSkeleton = () => (
+    <>
+      <Skeleton className="h-[50px] w-[150px] bg-[#2A2E3F] mb-8" />
+      {[1, 2, 3, 4, 5].map((_, index) => (
+        <div key={index} className="mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Skeleton className="w-6 h-6 rounded-full bg-[#2A2E3F] flex-shrink-0" />
+            <Skeleton className="h-[20px] w-[80px] bg-[#2A2E3F]" />
+            <Skeleton className="h-1.5 w-full bg-[#2A2E3F] rounded-full" />
+            <Skeleton className="h-[20px] w-[30px] bg-[#2A2E3F]" />
+          </div>
+          <div className="border-b border-[#2A2E3F]"></div>
+        </div>
+      ))}
+    </>
+  );
 
   return (
     <div className="space-y-12">
@@ -238,32 +289,38 @@ export default function ModuleOverview() {
               </div>
               <div className="flex justify-center items-center gap-[15px] w-full">
                 <div className="w-[65%] flex flex-col justify-center">
-                  <p className="text-[25px] xl:text-[30px] text-left font-[600] text-[#EBEBEB]">
-                    7,215
-                  </p>
-                  <div className="flex items-center gap-[2px]">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <path
-                        d="M21.2134 16.4497L13.6261 8.86242C13.2443 8.48056 13.0533 8.28963 12.8332 8.2181C12.6395 8.15517 12.4309 8.15517 12.2372 8.2181C12.0171 8.28963 11.8261 8.48056 11.4443 8.86242L8.80487 11.5018C8.42302 11.8837 8.23209 12.0746 8.01192 12.1461C7.81826 12.2091 7.60965 12.2091 7.41598 12.1461C7.19582 12.0746 7.00489 11.8837 6.62303 11.5018L1.92847 6.80725M21.2134 16.4497H14.4637M21.2134 16.4497V9.69999"
-                        stroke="#F04438"
-                        stroke-width="2.31419"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    <p className="text-[12px] xl:text-[15px] text-left font-[600] text-[#D92D20]">
-                      5%
-                    </p>
-                    <p className="text-[12px] xl:text-[15px] text-left font-[600] text-[#756D78] ml-[5px]">
-                      vs last month
-                    </p>
-                  </div>
+                  {isLoadingThreatCount ? (
+                    renderThreatCountSkeleton()
+                  ) : (
+                    <>
+                      <p className="text-[25px] xl:text-[30px] text-left font-[600] text-[#EBEBEB]">
+                        {threatCount.toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-[2px]">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M21.2134 16.4497L13.6261 8.86242C13.2443 8.48056 13.0533 8.28963 12.8332 8.2181C12.6395 8.15517 12.4309 8.15517 12.2372 8.2181C12.0171 8.28963 11.8261 8.48056 11.4443 8.86242L8.80487 11.5018C8.42302 11.8837 8.23209 12.0746 8.01192 12.1461C7.81826 12.2091 7.60965 12.2091 7.41598 12.1461C7.19582 12.0746 7.00489 11.8837 6.62303 11.5018L1.92847 6.80725M21.2134 16.4497H14.4637M21.2134 16.4497V9.69999"
+                            stroke="#F04438"
+                            stroke-width="2.31419"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                        <p className="text-[12px] xl:text-[15px] text-left font-[600] text-[#D92D20]">
+                          5%
+                        </p>
+                        <p className="text-[12px] xl:text-[15px] text-left font-[600] text-[#756D78] ml-[5px]">
+                          vs last month
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="w-[35%]">
                   <Image src={DownchartMini} alt="downchartmini" />
@@ -284,7 +341,7 @@ export default function ModuleOverview() {
           >
             <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
               <h3 className="text-[16px] xs:text-[18px] md:text-[20px] font-medium text-[#F1F1F1] whitespace-nowrap mr-4">
-                Ransomeware Analytics
+                Category Analytics
               </h3>
               <div className="flex flex-wrap items-center gap-x-[10px] md:gap-x-[20px] gap-y-2">
                 <div className="flex items-center gap-[5px]">
@@ -484,9 +541,15 @@ export default function ModuleOverview() {
               Total Threats Triggered
             </h3>
             <div className="relative">
-              <select className="bg-[#443759] text-white text-sm px-4 py-2 pr-10 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none">
-                <option>Last Week</option>
-                <option>Last Month</option>
+              <select 
+                className="bg-[#443759] text-white text-sm px-4 py-2 pr-10 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none"
+                value={alertTimePeriod}
+                onChange={handleAlertTimePeriodChange}
+                disabled={isLoadingAlertTypes}
+              >
+                <option value="weekly">This Week</option>
+                <option value="monthly">This Month</option>
+                <option value="all">All Time</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
                 <svg
@@ -501,98 +564,58 @@ export default function ModuleOverview() {
           </div>
 
           <div className="text-[#B435D4] text-4xl font-semibold mb-8">
-            7,215
+            {isLoadingAlertTypes ? (
+              <Skeleton className="h-[50px] w-[150px] bg-[#2A2E3F]" />
+            ) : (
+              threatsTriggered.toLocaleString()
+            )}
           </div>
 
           <div
             className="space-y-4 overflow-y-auto pr-2"
             style={{ maxHeight: "calc(100% - 140px)" }}
           >
-            {/* Phishing */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-full bg-[#B435D4] flex-shrink-0"></div>
-                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
-                  Phishing
-                </span>
-                <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#B435D4] to-[#D072E0] rounded-full"
-                    style={{ width: "40%" }}
-                  ></div>
-                </div>
-                <span className="text-[#B435D4] whitespace-nowrap w-10 text-right flex-shrink-0">
-                  40%
-                </span>
-              </div>
-              <div className="border-b border-[#2A2E3F]"></div>
-            </div>
-
-            {/* Ransomware rows (using different progress values) */}
-            {[35, 30, 28, 25, 15, 12, 20].map((value, index) => (
-              <div key={index}>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-6 h-6 rounded-full bg-[#4A3AFF] flex-shrink-0"></div>
-                  <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
-                    Ransomware
-                  </span>
-                  <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                    <div
-                      className={`h-full rounded-full ${
-                        index % 2 === 0
-                          ? "bg-[#4A3AFF]"
-                          : "bg-gradient-to-r from-[#B435D4] to-[#4A3AFF]"
-                      }`}
-                      style={{ width: `${value}%` }}
-                    ></div>
+            {isLoadingAlertTypes ? (
+              renderAlertTypesSkeleton()
+            ) : alertPercentages.length === 0 ? (
+              <div className="text-white text-center py-4">No alert data available</div>
+            ) : (
+              alertPercentages.map((alert, index) => (
+                <div key={index}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`w-6 h-6 rounded-full ${
+                      index % 4 === 0 ? "bg-[#B435D4]" : 
+                      index % 4 === 1 ? "bg-[#4A3AFF]" : 
+                      index % 4 === 2 ? "bg-[#FF9458]" : 
+                      "bg-[#8B85C1]"
+                    } flex-shrink-0`}></div>
+                    <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
+                      {alert.alert_type === "phishing" ? "Phishing" : alert.alert_type === "malware" ? "Malware" : alert.alert_type === "ransomware" ? "Ransomware" : alert.alert_type === "data-breach" ? "Data Breach"  : alert.alert_type}
+                    </span>
+                    <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
+                      <div
+                        className={`h-full rounded-full ${
+                          index % 4 === 0 ? "bg-gradient-to-r from-[#B435D4] to-[#D072E0]" : 
+                          index % 4 === 1 ? "bg-[#4A3AFF]" : 
+                          index % 4 === 2 ? "bg-[#FF9458]" : 
+                          "bg-[#8B85C1]"
+                        }`}
+                        style={{ width: `${alert.percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className={`whitespace-nowrap w-10 text-right flex-shrink-0 ${
+                      index % 4 === 0 ? "text-[#B435D4]" : 
+                      index % 4 === 1 ? "text-[#4A3AFF]" : 
+                      index % 4 === 2 ? "text-[#FF9458]" : 
+                      "text-[#8B85C1]"
+                    }`}>
+                      {alert.percentage}%
+                    </span>
                   </div>
-                  <span className="text-[#4A3AFF] whitespace-nowrap w-10 text-right flex-shrink-0">
-                    20%
-                  </span>
+                  <div className="border-b border-[#2A2E3F]"></div>
                 </div>
-                <div className="border-b border-[#2A2E3F]"></div>
-              </div>
-            ))}
-
-            {/* DDoS */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-full bg-[#FF9458] flex-shrink-0"></div>
-                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
-                  DDoS
-                </span>
-                <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                  <div
-                    className="h-full bg-[#FF9458] rounded-full"
-                    style={{ width: "40%" }}
-                  ></div>
-                </div>
-                <span className="text-[#FF9458] whitespace-nowrap w-10 text-right flex-shrink-0">
-                  40%
-                </span>
-              </div>
-              <div className="border-b border-[#2A2E3F]"></div>
-            </div>
-
-            {/* Others */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-full bg-[#8B85C1] flex-shrink-0"></div>
-                <span className="text-white whitespace-nowrap w-24 flex-shrink-0">
-                  Others
-                </span>
-                <div className="h-1.5 w-full bg-[#2A2E3F] rounded-full overflow-hidden flex-grow">
-                  <div
-                    className="h-full bg-[#8B85C1] rounded-full"
-                    style={{ width: "20%" }}
-                  ></div>
-                </div>
-                <span className="text-[#8B85C1] whitespace-nowrap w-10 text-right flex-shrink-0">
-                  20%
-                </span>
-              </div>
-              <div className="border-b border-[#2A2E3F]"></div>
-            </div>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -734,98 +757,98 @@ export default function ModuleOverview() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* OSINT Module Card */}
-          <div
-            className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
-            style={{
-              backgroundImage: `url(${ModuleMask.src})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-[24px] text-white font-medium">DiplomatIQ</h2>
-              <span
-                className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm"
-                style={{
-                  background: "rgba(169, 169, 169, 0.24)",
-                }}
-              >
-                Coming soon
-              </span>
-            </div>
-
-            <p className="text-[#999999] mb-[15px]">
-              Focuses on geopolitical conflicts, military movements, and
-              diplomatic intelligence, tracking over 50,000+ Telegram sources.
-            </p>
-
-            <div className="flex">
-              <button
-                className="text-white px-6 py-3 text-sm"
-                style={{
-                  background: "rgba(255, 255, 255, 0.10)",
-                  border: "1.389px solid #8310A0",
-                  borderRadius: "9px",
-                }}
-              >
-                Request early Access
-              </button>
-            </div>
-
-            <div className="mt-12 text-[#413B58] text-[64px] font-bold opacity-10 tracking-wider text-center">
+        {/* OSINT Module Card */}
+        <div
+          className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
+          style={{
+            backgroundImage: `url(${ModuleMask.src})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-[24px] text-white font-medium">DiplomatIQ</h2>
+            <span
+              className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm"
+              style={{
+                background: "rgba(169, 169, 169, 0.24)",
+              }}
+            >
               Coming soon
-            </div>
+            </span>
           </div>
 
-          {/* Crime Monitoring Module Card */}
-          <div
-            className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
-            style={{
-              backgroundImage: `url(${ModuleMask.src})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
-          >
-            <div className="flex justify-between items-start mb-8">
-              <h2 className="text-[24px] text-white font-medium">
-                CyberCrimeIQ (Exclusive for Governments)
-              </h2>
-              <span
-                className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm"
-                style={{
-                  background: "rgba(169, 169, 169, 0.24)",
-                }}
-              >
-                Coming Soon
-              </span>
-            </div>
+          <p className="text-[#999999] mb-[15px]">
+            Focuses on geopolitical conflicts, military movements, and
+            diplomatic intelligence, tracking over 50,000+ Telegram sources.
+          </p>
 
-            <p className="text-[#999999] mb-[15px]">
-              Provides intelligence on criminal networks, including drugs, arms
-              trafficking, terror groups, human trafficking, and counterfeits,
-              covering 3,000+ Telegram groups.
-            </p>
+          <div className="flex">
+            <button
+              className="text-white px-6 py-3 text-sm"
+              style={{
+                background: "rgba(255, 255, 255, 0.10)",
+                border: "1.389px solid #8310A0",
+                borderRadius: "9px",
+              }}
+            >
+              Request early Access
+            </button>
+          </div>
 
-            <div className="flex">
-              <button
-                className="text-white px-6 py-3 text-sm"
-                style={{
-                  background: "rgba(255, 255, 255, 0.10)",
-                  border: "1.389px solid #8310A0",
-                  borderRadius: "9px",
-                }}
-              >
-                Request early Access
-              </button>
-            </div>
+          <div className="mt-12 text-[#413B58] text-[64px] font-bold opacity-10 tracking-wider text-center">
+            Coming soon
+          </div>
+        </div>
 
-            <div className="mt-12 text-[#413B58] text-[64px] font-bold opacity-10 tracking-wider text-center">
-              Coming soon
-            </div>
+        {/* Crime Monitoring Module Card */}
+        <div
+          className="rounded-[26px] bg-[#111427] border border-[#22263C] p-6 flex flex-col"
+          style={{
+            backgroundImage: `url(${ModuleMask.src})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div className="flex justify-between items-start mb-8">
+            <h2 className="text-[24px] text-white font-medium">
+              CyberCrimeIQ (Exclusive for Governments)
+            </h2>
+            <span
+              className="text-[#9F9F9F] text-center px-4 py-1 rounded-full text-sm"
+              style={{
+                background: "rgba(169, 169, 169, 0.24)",
+              }}
+            >
+              Coming Soon
+            </span>
+          </div>
+
+          <p className="text-[#999999] mb-[15px]">
+            Provides intelligence on criminal networks, including drugs, arms
+            trafficking, terror groups, human trafficking, and counterfeits,
+            covering 3,000+ Telegram groups.
+          </p>
+
+          <div className="flex">
+            <button
+              className="text-white px-6 py-3 text-sm"
+              style={{
+                background: "rgba(255, 255, 255, 0.10)",
+                border: "1.389px solid #8310A0",
+                borderRadius: "9px",
+              }}
+            >
+              Request early Access
+            </button>
+          </div>
+
+          <div className="mt-12 text-[#413B58] text-[64px] font-bold opacity-10 tracking-wider text-center">
+            Coming soon
           </div>
         </div>
       </section>
