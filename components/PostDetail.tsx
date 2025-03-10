@@ -26,7 +26,7 @@ export function PostDetail({ post }: PostDetailProps) {
   const [content, setContent] = useState(post.content);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isTranslated, setIsTranslated] = useState(false);
-  const accessToken = localStorage.getItem("accessToken");
+  const accessToken = localStorage.getItem("access_token");
 
   const handleTranslate = async () => {
     try {

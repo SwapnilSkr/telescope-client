@@ -17,9 +17,57 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const { user, fetchUser } = useUserStore();
   const router = useRouter();
+
+  // List of blocked email domains
+  const blockedEmailDomains = [
+    // Personal email providers
+    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com", "protonmail.com",
+    "mail.com", "zoho.com", "yandex.com", "gmx.com", "live.com", "msn.com",
+    
+    // Temporary/disposable email providers
+    "temp-mail.org", "tempmail.com", "guerrillamail.com", "mailinator.com", "10minutemail.com",
+    "throwawaymail.com", "yopmail.com", "getnada.com", "dispostable.com", "sharklasers.com",
+    "trashmail.com", "maildrop.cc", "tempr.email", "fakeinbox.com", "tempinbox.com", "burpcollaborator.net"
+  ];
+
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    if (!email) return false;
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError("Please enter a valid email address");
+      return false;
+    }
+    
+    // Check if domain is in blocked list
+    const domain = email.split('@')[1].toLowerCase();
+    if (blockedEmailDomains.includes(domain)) {
+      setEmailError("Please use a work email. Personal and temporary emails are not allowed.");
+      return false;
+    }
+    
+    // Check for common patterns of disposable emails
+    if (/temp|fake|disposable|trash|throw|junk/.test(domain)) {
+      setEmailError("Please use a work email. Temporary emails are not allowed.");
+      return false;
+    }
+    
+    setEmailError(null);
+    return true;
+  };
+
+  // Handle email change
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    if (newEmail) validateEmail(newEmail);
+  };
 
   useEffect(() => {
     fetchUser();
@@ -34,6 +82,11 @@ export default function SignUpPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+
+    // Validate email before submission
+    if (!validateEmail(email)) {
+      return;
+    }
 
     try {
       const response = await fetch(`${BASE_URL}/register_account`, {
@@ -143,19 +196,24 @@ export default function SignUpPage() {
               <div className="mb-[25px]">
                 <input
                   id="email"
-                  placeholder="Email address"
+                  placeholder="Work email address"
                   type="email"
                   autoCapitalize="none"
                   autoComplete="email"
                   autoCorrect="off"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  onChange={handleEmailChange}
+                  className={`px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full ${
+                    emailError ? "border-red-400" : "border-[rgba(255,255,255,0.30)]"
+                  }`}
                   style={{
-                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    border: emailError ? "1px solid rgba(255, 100, 100, 0.5)" : "1px solid rgba(255, 255, 255, 0.30)",
                     borderRadius: "12px",
                   }}
                 />
+                {emailError && (
+                  <p className="text-sm text-red-400 mt-[5px]">{emailError}</p>
+                )}
               </div>
               <div className="relative">
                 <input
