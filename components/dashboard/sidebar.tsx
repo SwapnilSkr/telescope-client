@@ -11,6 +11,7 @@ import Threat from "@/public/Threat.png";
 import ThreatFill from "@/public/threatfill.png";
 import Pricing from "@/public/pricing.png";
 import PricingFill from "@/public/pricingfill.png";
+import { AlertSvg, PurpleAlertSvg } from "@/components/svgs/AlertSvg";
 import useUserStore from "@/stores/userStore";
 import Image from "next/image";
 
@@ -33,6 +34,14 @@ const menuItems = [
   { icon: Module, fillIcon: ModuleFill, label: "Module Overview", href: "/dashboard" },
   { icon: Realtime, fillIcon: RealtimeFill, label: "Real-Time Feed", href: "/dashboard/real-time-feed" },
   { icon: Alert, fillIcon: AlertFill, label: "Alert Settings", href: "/dashboard/alert-settings" },
+  { 
+    icon: "svg", 
+    fillIcon: "svg", 
+    svgComponent: AlertSvg, 
+    svgFillComponent: PurpleAlertSvg, 
+    label: "Alert Logs", 
+    href: "/dashboard/alert-logs" 
+  },
   { icon: Threat, fillIcon: ThreatFill, label: "Threat Actor Library", href: "/dashboard/threat-actors" },
   // { icon: Pricing, fillIcon: PricingFill, label: "Pricing", href: "/dashboard/pricing" },
 ];
@@ -57,24 +66,41 @@ export function Sidebar({ className }: { className?: string }) {
                 }`}
               >
                 <div className="relative w-[20px] h-[20px] mr-3 flex items-center justify-center">
-                  <Image 
-                    src={item.icon} 
-                    alt={item.label} 
-                    width={20} 
-                    height={20} 
-                    className={`absolute inset-0 ${
-                      pathname === item.href ? 'opacity-0' : 'opacity-100 group-hover:opacity-0'
-                    }`} 
-                  />
-                  <Image 
-                    src={item.fillIcon} 
-                    alt={`${item.label} (active)`} 
-                    width={20} 
-                    height={20} 
-                    className={`absolute inset-0 ${
-                      pathname === item.href ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    }`} 
-                  />
+                  {item.icon === "svg" ? (
+                    <>
+                      <div className={`absolute inset-0 ${
+                        pathname === item.href ? 'opacity-0' : 'opacity-100 group-hover:opacity-0'
+                      }`}>
+                        {item.svgComponent && <item.svgComponent />}
+                      </div>
+                      <div className={`absolute inset-0 ${
+                        pathname === item.href ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}>
+                        {item.svgFillComponent && <item.svgFillComponent />}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Image 
+                        src={item.icon} 
+                        alt={item.label} 
+                        width={20} 
+                        height={20} 
+                        className={`absolute inset-0 ${
+                          pathname === item.href ? 'opacity-0' : 'opacity-100 group-hover:opacity-0'
+                        }`} 
+                      />
+                      <Image 
+                        src={item.fillIcon} 
+                        alt={`${item.label} (active)`} 
+                        width={20} 
+                        height={20} 
+                        className={`absolute inset-0 ${
+                          pathname === item.href ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        }`} 
+                      />
+                    </>
+                  )}
                 </div>
                 {item.label}
               </Link>

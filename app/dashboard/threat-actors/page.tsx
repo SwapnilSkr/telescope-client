@@ -174,7 +174,7 @@ export default function ThreatActorLibrary() {
         <div className="relative flex items-center w-full md:w-1/3">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="search Posts"
+            placeholder="search threat actors"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="pl-10 bg-[#020017] border-none text-white focus:outline-none focus:ring-0"

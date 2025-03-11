@@ -118,7 +118,7 @@ export default function DashboardLayout({
               </p>
             </div>
 
-            {/* Search Bar */}
+            {/* Search Bar
             <div className="hidden md:flex relative flex-1 max-w-xl mx-8">
               <div className="w-full relative flex items-center">
                 <div className="absolute left-5">
@@ -155,7 +155,7 @@ export default function DashboardLayout({
                   }}
                 />
               </div>
-            </div>
+            </div> */}
 
             <div className="notif-profile-container flex justify-center items-center gap-x-[20px]">
               <div
