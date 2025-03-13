@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
@@ -39,12 +39,15 @@ interface Media {
 }
 
 interface Post {
-  id: number;
+  id: string;
+  message_id: number;
+  group_id: number;
   channel: string;
   timestamp: string;
   content: string;
   tags: string[];
   media?: Media;
+  has_previous: boolean;
 }
 
 interface Group {
@@ -56,89 +59,214 @@ interface Group {
 export default function RealTimeFeed() {
   const searchParams = useSearchParams();
   const router = useRouter();
-
-  // Watch for URL parameter changes
-  useEffect(() => {
-    // Update state based on current URL parameters
-    const keyword = searchParams.get("keyword") || "";
-    const sortOrder =
-      (searchParams.get("sortBy") as "latest" | "oldest") || "latest";
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const groupIds = searchParams.getAll("group_ids");
-
-    setSearchKeyword(keyword);
-    setSearchInput(keyword);
-    setSortBy(sortOrder);
-    setCurrentPage(page);
-    setSelectedGroups(groupIds);
-
-    // Fetch posts with the new parameters
-    fetchPosts();
-  }, [searchParams]);
-
-  // Get params from URL (still needed for initial state)
-  const initialSearch = searchParams.get("keyword") || "";
-  const initialSortBy =
-    (searchParams.get("sortBy") as "latest" | "oldest") || "latest";
-  const initialPage = parseInt(searchParams.get("page") || "1", 10);
-  const initialLimit = parseInt(
-    searchParams.get("limit") || ITEMS_PER_PAGE.toString(),
-    10
-  );
-  const [searchKeyword, setSearchKeyword] = useState<string>(initialSearch);
-
-  // States
-  const [searchInput, setSearchInput] = useState<string>(initialSearch);
-  const [sortBy, setSortBy] = useState<"latest" | "oldest">(initialSortBy);
-  const [currentPage, setCurrentPage] = useState<number>(initialPage);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>(
-    searchParams.getAll("group_ids") // Initialize from "group_ids" in URL
-  );
-  const [groupSearch, setGroupSearch] = useState<string>("");
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
   const accessToken = localStorage.getItem("access_token");
 
-  // Fetch groups
+  // Single source of truth - URL parameters
+  const getParamValue = useCallback(
+    (key: string, defaultValue: string = "") => {
+      return searchParams.get(key) || defaultValue;
+    },
+    [searchParams]
+  );
+
+  const getParamValues = useCallback(
+    (key: string) => {
+      return searchParams.getAll(key);
+    },
+    [searchParams]
+  );
+
+  // Derived state from URL parameters
+  const [searchInput, setSearchInput] = useState<string>(
+    getParamValue("keyword")
+  );
+  const [groupSearch, setGroupSearch] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingGroups, setLoadingGroups] = useState<boolean>(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [currentPost, setCurrentPost] = useState<Post | null>(null);
+  const [loadingPrevious, setLoadingPrevious] = useState<boolean>(false);
+
+  // Fetch posts based on URL parameters
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Get parameters directly from URL for consistency
+      const currentSortBy = getParamValue("sortBy", "latest");
+      const currentPage = getParamValue("page", "1");
+      const currentLimit = getParamValue("limit", ITEMS_PER_PAGE.toString());
+
+      // Create a new URLSearchParams object
+      const params = new URLSearchParams();
+
+      // Set parameters explicitly with consistent names
+      params.set("sortOrder", currentSortBy);
+      params.set("page", currentPage);
+      params.set("limit", currentLimit);
+
+      // Add keyword if it exists
+      const keyword = getParamValue("keyword");
+      if (keyword) {
+        params.set("keyword", keyword);
+      }
+
+      // Add group_ids if they exist
+      const groupIds = getParamValues("group_ids");
+      groupIds.forEach((id) => {
+        params.append("group_ids", id);
+      });
+
+      console.log(
+        `Fetching with sort order: ${currentSortBy}, page: ${currentPage}`
+      );
+
+      const response = await fetch(
+        `${BASE_URL}/messages/search?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch posts");
+
+      const data = await response.json();
+      setPosts(data.messages);
+      setTotalPages(data.total_pages);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+      setPosts([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchParams, accessToken, getParamValue, getParamValues]);
+
+  // Fetch groups from the API
   const fetchGroups = useCallback(async () => {
+    setLoadingGroups(true);
     try {
       const response = await fetch(`${BASE_URL}/groups`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
+
       if (!response.ok) throw new Error("Failed to fetch groups");
 
       const data = await response.json();
       setGroups(data.groups);
     } catch (error) {
       console.error("Error fetching groups:", error);
+      setGroups([]);
+    } finally {
+      setLoadingGroups(false);
     }
-  }, []);
+  }, [accessToken]);
 
-  useEffect(() => {
-    fetchGroups();
-  }, []);
-
-  // Filtered groups based on search
-  const filteredGroups = groups.filter((group) =>
-    group.title.toLowerCase().includes(groupSearch.toLowerCase())
-  );
-
+  // Fetch posts whenever URL parameters change
   useEffect(() => {
     fetchPosts();
-    updateQueryParams();
-  }, [
-    searchKeyword,
-    sortBy,
-    currentPage,
-    selectedGroups,
-    initialLimit,
-    router,
-  ]);
+  }, [fetchPosts]);
+
+  // Fetch groups once on component mount
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  // Update URL with new parameters
+  const updateUrlParams = useCallback(
+    (
+      updates: Record<string, string | number | null>,
+      resetPage: boolean = false
+    ) => {
+      // Set loading first to prevent multiple fetches
+      setLoading(true);
+
+      const params = new URLSearchParams(window.location.search);
+
+      // Apply all updates
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null) {
+          params.delete(key);
+        } else {
+          params.set(key, String(value));
+        }
+      });
+
+      // Reset page to 1 if requested
+      if (resetPage) {
+        params.set("page", "1");
+      }
+
+      // Use replace to avoid adding to history stack
+      router.replace(`?${params.toString()}`, { scroll: false });
+
+      // fetchPosts will be called by the useEffect watching searchParams
+    },
+    [router]
+  );
+
+  // Handle search submission
+  const handleSearch = () => {
+    updateUrlParams({ keyword: searchInput || null }, true);
+  };
+
+  // Handle sort change - prevent multiple fetches
+  const handleSortChange = (value: "latest" | "oldest") => {
+    updateUrlParams({
+      sortBy: value,
+      page: 1, // Reset to page 1 when changing sort order
+    });
+    // No need to manually call fetchPosts - URL change will trigger it
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    if (loading) return; // Prevent multiple clicks during loading
+    updateUrlParams({ page });
+  };
+
+  // Handle group selection
+  const handleGroupSelection = (groupIds: string[]) => {
+    if (loading) return; // Prevent actions during loading
+
+    const params = new URLSearchParams(window.location.search);
+
+    // Remove all existing group_ids
+    params.delete("group_ids");
+
+    // Add new group_ids
+    groupIds.forEach((id) => {
+      params.append("group_ids", id);
+    });
+
+    // Reset to page 1
+    params.set("page", "1");
+
+    // Set loading to prevent multiple triggers
+    setLoading(true);
+
+    // Update URL - fetchPosts will be triggered by the URL change
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  // Truncate content for display - character limit
+  const truncateContent = (content: string, charLimit: number): string => {
+    return content.length > charLimit
+      ? content.substring(0, charLimit) + "..."
+      : content;
+  };
+
+  const filteredGroups = useMemo(() => {
+    return groups.filter((group) =>
+      group.title.toLowerCase().includes(groupSearch.toLowerCase())
+    );
+  }, [groups, groupSearch]);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -176,90 +304,201 @@ export default function RealTimeFeed() {
     };
   }, []);
 
-  const handleSearch = () => {
-    setSearchKeyword(searchInput);
-    setCurrentPage(1);
-  };
-
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        keyword: searchKeyword, // Changed from searchInput to searchKeyword
-        sortOrder: sortBy,
-        page: currentPage.toString(),
-        limit: initialLimit.toString(),
-      });
-
-      // Add multiple group_ids
-      if (selectedGroups.length > 0) {
-        selectedGroups.forEach((groupId) => {
-          params.append("group_ids", groupId);
-        });
-      }
-
-      const response = await fetch(
-        `${BASE_URL}/messages/search?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch posts");
-
-      const data = await response.json();
-      setPosts(data.messages);
-      setTotalPages(data.total_pages);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-    }
-    setLoading(false);
-  }, [searchKeyword, sortBy, currentPage, initialLimit, selectedGroups]);
-
+  // Handle real-time updates
   useEffect(() => {
     if (!socket) return;
 
     socket.on("new_messages", (data) => {
       console.log("New messages received:", data);
-      fetchPosts();
+
+      if (data?.data && Array.isArray(data.data)) {
+        // Skip updates during active loading or on paginated views
+        if (loading || parseInt(getParamValue("page", "1"), 10) > 1) {
+          console.log(
+            "Skipping real-time update - loading or not on first page"
+          );
+          return;
+        }
+
+        // Group messages by group_id and get latest per group
+        const groupedNewMessages = data.data.reduce(
+          (acc: Record<number, any[]>, message: any) => {
+            if (!acc[message.group_id]) {
+              acc[message.group_id] = [];
+            }
+            acc[message.group_id].push(message);
+            return acc;
+          },
+          {} as Record<number, any[]>
+        );
+
+        const latestGroupMessages = Object.keys(groupedNewMessages).map(
+          (groupId) => {
+            const groupMessages = groupedNewMessages[parseInt(groupId)];
+            return groupMessages.sort(
+              (a: any, b: any) =>
+                new Date(b.timestamp).getTime() -
+                new Date(a.timestamp).getTime()
+            )[0];
+          }
+        );
+
+        // Update the posts state
+        setPosts((prevPosts) => {
+          // Get existing posts by group_id
+          const existingPostsByGroup = prevPosts.reduce(
+            (acc: Record<number, Post>, post) => {
+              acc[post.group_id] = post;
+              return acc;
+            },
+            {} as Record<number, Post>
+          );
+
+          // Merge new messages, keeping only the latest per group
+          latestGroupMessages.forEach((newMessage: any) => {
+            const existingPost = existingPostsByGroup[newMessage.group_id];
+            if (
+              !existingPost ||
+              new Date(newMessage.timestamp) > new Date(existingPost.timestamp)
+            ) {
+              existingPostsByGroup[newMessage.group_id] = {
+                ...newMessage,
+                has_previous: true,
+              };
+            }
+          });
+
+          // Get current sort order and limit
+          const currentSortBy = getParamValue("sortBy", "latest") as
+            | "latest"
+            | "oldest";
+          const currentLimit = parseInt(
+            getParamValue("limit", ITEMS_PER_PAGE.toString()),
+            10
+          );
+
+          // Return properly sorted results
+          return Object.values(existingPostsByGroup)
+            .sort((a: Post, b: Post) => {
+              const timeA = new Date(a.timestamp).getTime();
+              const timeB = new Date(b.timestamp).getTime();
+              return currentSortBy === "latest" ? timeB - timeA : timeA - timeB;
+            })
+            .slice(0, currentLimit);
+        });
+      }
     });
 
     return () => {
       socket.off("new_messages");
     };
-  }, [socket, fetchPosts]);
-
-  const updateQueryParams = () => {
-    const params = new URLSearchParams();
-    if (searchKeyword) params.set("keyword", searchKeyword);
-    if (sortBy) params.set("sortBy", sortBy);
-    if (selectedGroups.length > 0) {
-      selectedGroups.forEach((groupId) => {
-        params.append("group_ids", groupId); // Use "group_ids" to match the API
-      });
-    }
-    params.set("page", currentPage.toString());
-    params.set("limit", initialLimit.toString());
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
-
-  // Truncate content for display - character limit
-  const truncateContent = (content: string, charLimit: number): string => {
-    return content.length > charLimit
-      ? content.substring(0, charLimit) + "..."
-      : content;
-  };
+  }, [socket, getParamValue, loading]);
 
   // Pagination controls
-  const startPage = Math.max(
-    1,
-    currentPage - Math.floor(PAGINATION_BUTTONS_LIMIT / 2)
-  );
-  const endPage = Math.min(
-    totalPages,
-    startPage + PAGINATION_BUTTONS_LIMIT - 1
-  );
+  const renderPaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    const currentPage = parseInt(getParamValue("page", "1"), 10);
+
+    // Calculate the range of page numbers to display
+    let startPage = Math.max(
+      1,
+      currentPage - Math.floor(PAGINATION_BUTTONS_LIMIT / 2)
+    );
+    const endPage = Math.min(
+      totalPages,
+      startPage + PAGINATION_BUTTONS_LIMIT - 1
+    );
+
+    // Adjust startPage if we're near the end
+    if (endPage - startPage + 1 < PAGINATION_BUTTONS_LIMIT) {
+      startPage = Math.max(1, endPage - PAGINATION_BUTTONS_LIMIT + 1);
+    }
+
+    return (
+      <div className="flex justify-center mt-6">
+        <div className="flex items-center space-x-1">
+          <button
+            className={`px-3 py-1 rounded text-[#B34AFE] cursor-pointer flex items-center ${
+              currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            onClick={() => {
+              if (currentPage > 1) {
+                handlePageChange(currentPage - 1);
+              }
+            }}
+            disabled={currentPage === 1 || loading}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="mr-1"
+            >
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Previous
+          </button>
+
+          {Array.from(
+            { length: endPage - startPage + 1 },
+            (_, i) => startPage + i
+          ).map((page) => (
+            <button
+              key={page}
+              className={`w-8 h-8 flex items-center justify-center rounded ${
+                currentPage === page
+                  ? "bg-[#111427] text-white"
+                  : "text-gray-400 hover:bg-[#111427]"
+              } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => {
+                if (!loading && page !== currentPage) {
+                  handlePageChange(page);
+                }
+              }}
+              disabled={loading}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            className={`px-3 py-1 rounded text-[#B34AFE] cursor-pointer flex items-center ${
+              currentPage === totalPages ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            onClick={() => {
+              if (currentPage < totalPages) {
+                handlePageChange(currentPage + 1);
+              }
+            }}
+            disabled={currentPage === totalPages || loading}
+          >
+            Next
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="ml-1"
+            >
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Threat levels for visualization (for MongoDB ObjectIDs)
   const getThreatLevel = (id: number | string) => {
@@ -391,6 +630,41 @@ export default function RealTimeFeed() {
     );
   };
 
+  // Add this function to fetch previous messages
+  const fetchPreviousMessage = async (post: Post) => {
+    setLoadingPrevious(true);
+    try {
+      const response = await fetch(
+        `${BASE_URL}/messages/previous?group_id=${post.group_id}&message_id=${post.message_id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch previous message");
+
+      const data = await response.json();
+      if (data && !data.has_previous) {
+        // No more previous messages
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error fetching previous message:", error);
+      return null;
+    } finally {
+      setLoadingPrevious(false);
+    }
+  };
+
+  // Add this function to handle opening a post in the sheet
+  const handleOpenPost = (post: Post) => {
+    setCurrentPost(post);
+  };
+
   return (
     <div className="space-y-6 text-white min-h-screen">
       <div className="flex items-center gap-4">
@@ -444,11 +718,10 @@ export default function RealTimeFeed() {
             <p className="text-[#68667C] text-sm">Sort by</p>
           </span>
           <Select
-            value={sortBy}
-            onValueChange={(value) => {
-              setSortBy(value as "latest" | "oldest");
-              setCurrentPage(1);
-            }}
+            value={getParamValue("sortBy", "latest")}
+            onValueChange={(value) =>
+              handleSortChange(value as "latest" | "oldest")
+            }
           >
             <SelectTrigger
               className="w-[120px] border-none flex items-center px-4"
@@ -476,22 +749,31 @@ export default function RealTimeFeed() {
                   background: "rgba(160, 83, 216, 0.30)",
                 }}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="21"
-                  height="14"
-                  viewBox="0 0 21 14"
-                  fill="none"
-                >
-                  <path
-                    d="M1 1H20M4.16667 7H16.8333M7.96667 13H13.0333"
-                    stroke="white"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-                Groups({selectedGroups.length})
+                {loadingGroups ? (
+                  <>
+                    <Skeleton className="h-4 w-4 rounded-full bg-purple-900/50 animate-pulse" />
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="21"
+                      height="14"
+                      viewBox="0 0 21 14"
+                      fill="none"
+                    >
+                      <path
+                        d="M1 1H20M4.16667 7H16.8333M7.96667 13H13.0333"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Groups({getParamValues("group_ids").length})
+                  </>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 bg-[#191927] text-white border-gray-700">
@@ -500,45 +782,76 @@ export default function RealTimeFeed() {
                   placeholder="Search groups..."
                   value={groupSearch}
                   onChange={(e) => setGroupSearch(e.target.value)}
+                  className="bg-[#111427] border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500"
+                  disabled={loadingGroups}
                 />
               </div>
               <ScrollArea className="h-[200px] pr-4">
-                {filteredGroups.slice(0, 10).map((group) => {
-                  const selectedGroupsArrayInt = selectedGroups.map((g) =>
-                    parseInt(g)
-                  );
-                  return (
-                    <div
-                      key={group._id}
-                      className="flex items-center space-x-2 mb-2"
-                    >
-                      <Checkbox
-                        id={group._id}
-                        checked={selectedGroupsArrayInt.includes(
-                          parseInt(group.group_id)
-                        )}
-                        onCheckedChange={(checked) => {
-                          setSelectedGroups(
-                            checked
-                              ? [...selectedGroups, group.group_id]
-                              : selectedGroups.filter(
-                                  (g) =>
-                                    parseInt(g) !== parseInt(group.group_id)
-                                )
-                          );
-                          setCurrentPage(1);
-                        }}
-                      />
-                      <label
-                        htmlFor={group._id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                {loadingGroups ? (
+                  // Skeleton loading state for groups
+                  Array(5)
+                    .fill(0)
+                    .map((_, index) => (
+                      <div
+                        key={`skeleton-group-${index}`}
+                        className="flex items-center space-x-2 mb-3"
                       >
-                        {group.title}
-                      </label>
-                    </div>
-                  );
-                })}
-                {filteredGroups.length > 10 && (
+                        <Skeleton className="h-4 w-4 rounded bg-purple-900/30" />
+                        <Skeleton className="h-5 w-[80%] rounded bg-purple-900/30" />
+                      </div>
+                    ))
+                ) : filteredGroups.length > 0 ? (
+                  // Render groups when available
+                  filteredGroups.slice(0, 10).map((group) => {
+                    const selectedGroupIds = getParamValues("group_ids");
+                    // Convert both to strings to ensure consistent comparison
+                    const isSelected = selectedGroupIds.includes(
+                      String(group.group_id)
+                    );
+
+                    return (
+                      <div
+                        key={group._id}
+                        className="flex items-center space-x-2 mb-2"
+                      >
+                        <Checkbox
+                          id={group._id}
+                          checked={isSelected}
+                          className="border-purple-500 data-[state=checked]:bg-purple-600"
+                          onCheckedChange={(checked) => {
+                            const currentGroups = [...selectedGroupIds];
+                            const groupIdString = String(group.group_id);
+
+                            if (checked) {
+                              if (!currentGroups.includes(groupIdString)) {
+                                currentGroups.push(groupIdString);
+                              }
+                            } else {
+                              const index =
+                                currentGroups.indexOf(groupIdString);
+                              if (index !== -1) {
+                                currentGroups.splice(index, 1);
+                              }
+                            }
+                            handleGroupSelection(currentGroups);
+                          }}
+                        />
+                        <label
+                          htmlFor={group._id}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {group.title}
+                        </label>
+                      </div>
+                    );
+                  })
+                ) : (
+                  // No groups found
+                  <div className="text-center py-4 text-gray-400">
+                    No groups found
+                  </div>
+                )}
+                {!loadingGroups && filteredGroups.length > 10 && (
                   <p className="text-sm text-muted-foreground mt-2">
                     {filteredGroups.length - 10} more groups...
                   </p>
@@ -574,47 +887,53 @@ export default function RealTimeFeed() {
         {loading ? (
           <div>
             {/* Skeleton loading state */}
-            {Array(5).fill(0).map((_, index) => (
-              <div key={`skeleton-${index}`} className="grid grid-cols-12 gap-4 md:gap-6 py-5 px-6 bg-[#14152E] relative">
-                {/* Channel column skeleton */}
-                <div className="col-span-3 space-y-2">
-                  <Skeleton className="h-6 w-24 bg-gray-700/50" />
-                  <Skeleton className="h-4 w-32 bg-gray-700/30" />
-                </div>
-
-                {/* Threat strength column skeleton */}
-                <div className="col-span-3 flex items-center">
-                  <div className="flex space-x-1">
-                    {Array(5).fill(0).map((_, i) => (
-                      <Skeleton 
-                        key={i} 
-                        className={`h-2 w-8 rounded-md bg-purple-900/40`} 
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tags column skeleton */}
-                <div className="col-span-3 flex items-center gap-2">
-                  <Skeleton className="h-6 w-20 rounded-full bg-purple-900/30" />
-                  <Skeleton className="h-6 w-16 rounded-full bg-purple-900/30" />
-                  <Skeleton className="h-6 w-24 rounded-full bg-purple-900/30" />
-                </div>
-
-                {/* Time column skeleton */}
-                <div className="col-span-3">
-                  <Skeleton className="h-4 w-16 bg-purple-900/30" />
-                </div>
-
-                {/* 90% width border at bottom */}
+            {Array(5)
+              .fill(0)
+              .map((_, index) => (
                 <div
-                  className="absolute bottom-0 left-[2.5%] right-[2.5%] w-[95%] h-[1px] bg-gradient-to-r from-white/15 to-white/10"
-                  style={{
-                    opacity: 0.4,
-                  }}
-                ></div>
-              </div>
-            ))}
+                  key={`skeleton-${index}`}
+                  className="grid grid-cols-12 gap-4 md:gap-6 py-5 px-6 bg-[#14152E] relative"
+                >
+                  {/* Channel column skeleton */}
+                  <div className="col-span-3 space-y-2">
+                    <Skeleton className="h-6 w-3/4 bg-gray-700/50" />
+                    <Skeleton className="h-4 w-1/2 bg-gray-700/30" />
+                  </div>
+
+                  {/* Threat strength column skeleton */}
+                  <div className="col-span-3 flex items-center">
+                    <div className="flex space-x-1">
+                      {Array(5)
+                        .fill(0)
+                        .map((_, i) => (
+                          <Skeleton
+                            key={i}
+                            className={`h-2 w-8 rounded-md bg-purple-900/40`}
+                          />
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Tags column skeleton */}
+                  <div className="col-span-3 flex items-center gap-2">
+                    <Skeleton className="h-6 w-20 rounded-full bg-purple-900/30" />
+                    <Skeleton className="h-6 w-16 rounded-full bg-purple-900/30" />
+                  </div>
+
+                  {/* Time column skeleton */}
+                  <div className="col-span-3">
+                    <Skeleton className="h-4 w-16 bg-purple-900/30" />
+                  </div>
+
+                  {/* 90% width border at bottom */}
+                  <div
+                    className="absolute bottom-0 left-[2.5%] right-[2.5%] w-[95%] h-[1px] bg-gradient-to-r from-white/15 to-white/10"
+                    style={{
+                      opacity: 0.4,
+                    }}
+                  ></div>
+                </div>
+              ))}
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-8 text-gray-500">No posts found.</div>
@@ -623,7 +942,10 @@ export default function RealTimeFeed() {
             {posts.map((post) => (
               <Sheet key={post.id}>
                 <SheetTrigger asChild>
-                  <div className="grid grid-cols-12 gap-4 md:gap-6 py-5 px-6 hover:bg-[#1c1c36] bg-[#14152E] cursor-pointer relative">
+                  <div
+                    className="grid grid-cols-12 gap-4 md:gap-6 py-5 px-6 hover:bg-[#1c1c36] bg-[#14152E] cursor-pointer relative"
+                    onClick={() => handleOpenPost(post)}
+                  >
                     {/* Channel column - 3/12 width */}
                     <div className="col-span-3">
                       <p className="font-medium text-lg">{post.channel}</p>
@@ -669,77 +991,7 @@ export default function RealTimeFeed() {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-6">
-          <div className="flex items-center space-x-1">
-            <button
-              className="px-3 py-1 rounded text-[#B34AFE] cursor-pointer flex items-center"
-              onClick={() => {
-                if (currentPage > 1) setCurrentPage((prev) => prev - 1);
-              }}
-              disabled={currentPage === 1}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <polyline points="15 18 9 12 15 6"></polyline>
-              </svg>
-              Previous
-            </button>
-
-            {Array.from(
-              { length: endPage - startPage + 1 },
-              (_, i) => startPage + i
-            ).map((page) => (
-              <button
-                key={page}
-                className={`w-8 h-8 flex items-center justify-center rounded ${
-                  currentPage === page
-                    ? "bg-[#111427] text-white"
-                    : "text-gray-400 hover:bg-[#111427]"
-                }`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="px-3 py-1 rounded text-[#B34AFE] cursor-pointer flex items-center"
-              onClick={() => {
-                if (currentPage < totalPages)
-                  setCurrentPage((prev) => prev + 1);
-              }}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="ml-1"
-              >
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      {renderPaginationControls()}
     </div>
   );
 }

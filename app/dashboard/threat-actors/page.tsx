@@ -22,6 +22,7 @@ import { AddMultipleGroupsModal } from "@/components/AddMultipleGroupsModal";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ITEMS_PER_PAGE = 10;
+const PAGINATION_BUTTONS_LIMIT = 10;
 
 interface Group {
   id: string;
@@ -87,13 +88,16 @@ export default function ThreatActorLibrary() {
   const fetchGroups = useCallback(async () => {
     setLoading(true);
     try {
+      // Always use state variables directly to build the query
       const params = new URLSearchParams();
       if (searchKeyword) params.set("keyword", searchKeyword);
       if (selectedType !== "All") params.set("category", selectedType);
       if (selectedStatus !== "All") params.set("status", selectedStatus);
       params.set("page", currentPage.toString());
       params.set("limit", ITEMS_PER_PAGE.toString());
-
+  
+      console.log("Fetching groups with params:", params.toString());
+  
       const response = await fetch(
         `${BASE_URL}/groups/search?${params.toString()}`,
         {
@@ -103,45 +107,56 @@ export default function ThreatActorLibrary() {
         }
       );
       if (!response.ok) throw new Error("Failed to fetch groups");
-
+  
       const data = await response.json();
       setGroups(data.groups);
       setTotalPages(data.total_pages);
     } catch (error) {
       console.error("Error fetching groups:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [searchKeyword, selectedType, selectedStatus, currentPage]);
+  }, [searchKeyword, selectedType, selectedStatus, currentPage, accessToken]);
 
   // Update query params in URL
-  const updateQueryParams = () => {
+  const updateQueryParams = useCallback(() => {
+    // Set loading to prevent additional fetches during URL update
+    setLoading(true);
+    
     const params = new URLSearchParams();
     if (searchKeyword) params.set("keyword", searchKeyword);
     if (selectedType !== "All") params.set("category", selectedType);
     if (selectedStatus !== "All") params.set("status", selectedStatus);
     params.set("page", currentPage.toString());
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+    
+    // Use replace to avoid adding to history stack
+    router.replace(`?${params.toString()}`, { scroll: false });
+    
+    // No need to call fetchGroups here - the useEffect watching searchParams will handle it
+  }, [searchKeyword, selectedType, selectedStatus, currentPage, router]);
 
   // Watch for URL parameter changes and update state
   useEffect(() => {
-    // Update state based on current URL parameters
-    const keyword = searchParams.get("keyword") || "";
-    const category = searchParams.get("category") || "All";
-    const status = searchParams.get("status") || "All";
-    const page = parseInt(searchParams.get("page") || "1", 10);
+    // Check if we need to update URL based on state
+    const currentKeyword = searchParams.get("keyword") || "";
+    const currentCategory = searchParams.get("category") || "All";
+    const currentStatus = searchParams.get("status") || "All";
+    const currentPageParam = parseInt(searchParams.get("page") || "1", 10);
     
-    // Only update state if values are different from current state
-    // to avoid unnecessary re-renders
-    if (searchKeyword !== keyword) setSearchKeyword(keyword);
-    if (searchInput !== keyword) setSearchInput(keyword);
-    if (selectedType !== category) setSelectedType(category);
-    if (selectedStatus !== status) setSelectedStatus(status);
-    if (currentPage !== page) setCurrentPage(page);
-    
-    // Fetch groups with the new parameters
-    fetchGroups();
-  }, [searchParams]); // This will trigger whenever URL params change
+    const needsUrlUpdate = 
+      searchKeyword !== currentKeyword ||
+      selectedType !== currentCategory ||
+      selectedStatus !== currentStatus ||
+      currentPage !== currentPageParam;
+      
+    if (needsUrlUpdate) {
+      // Update URL without refetching since the state is already correct
+      updateQueryParams();
+    } else {
+      // URL is in sync with state, so fetch data
+      fetchGroups();
+    }
+  }, [searchKeyword, selectedType, selectedStatus, currentPage, searchParams, updateQueryParams, fetchGroups]);
 
   // The existing useEffect can remain for updating the URL when state changes
   useEffect(() => {
@@ -156,10 +171,34 @@ export default function ThreatActorLibrary() {
     currentPage,
   ]);
 
+  const handleTypeChange = (value: string) => {
+    if (loading) return; // Prevent actions during loading
+    setSelectedType(value);
+    setCurrentPage(1); // Reset to page 1 when changing filter
+  };
+
+  const handleStatusChange = (value: string) => {
+    if (loading) return; // Prevent actions during loading
+    setSelectedStatus(value);
+    setCurrentPage(1); // Reset to page 1 when changing filter
+  };
+
+  const handlePageChange = (page: number) => {
+    if (loading) return; // Prevent actions during loading
+    setCurrentPage(page);
+  };
+
   // Handle search button click
   const handleSearch = () => {
+    if (loading) return; // Prevent actions during loading
+    
+    // Update the search keyword from input
     setSearchKeyword(searchInput);
+    
+    // Reset to page 1 when changing search
     setCurrentPage(1);
+    
+    // The useEffect will handle URL updates and data fetching
   };
 
   return (
@@ -191,7 +230,7 @@ export default function ThreatActorLibrary() {
         {/* Filter by Type */}
         <div className="flex-1 w-full md:w-auto">
           <p className="text-sm text-gray-400 mb-2">Filter by Type</p>
-          <Select value={selectedType} onValueChange={setSelectedType}>
+          <Select value={selectedType} onValueChange={handleTypeChange}>
             <SelectTrigger
               className="w-full bg-[#191927] border-none text-white"
               style={{
@@ -214,7 +253,7 @@ export default function ThreatActorLibrary() {
         {/* Filter by Status */}
         <div className="flex-1 w-full md:w-auto">
           <p className="text-sm text-gray-400 mb-2">Filter by Status</p>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <Select value={selectedStatus} onValueChange={handleStatusChange}>
             <SelectTrigger
               className="w-full bg-[#191927] border-none text-white"
               style={{
@@ -396,9 +435,7 @@ export default function ThreatActorLibrary() {
           <div className="flex items-center space-x-1">
             <button
               className="px-3 py-1 rounded text-[#B34AFE] cursor-pointer flex items-center"
-              onClick={() => {
-                if (currentPage > 1) setCurrentPage((prev) => prev - 1);
-              }}
+              onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
             >
               <svg
@@ -418,29 +455,43 @@ export default function ThreatActorLibrary() {
               Previous
             </button>
 
-            {Array.from(
-              { length: Math.min(totalPages, 5) },
-              (_, i) => i + 1
-            ).map((page) => (
-              <button
-                key={page}
-                className={`w-8 h-8 flex items-center justify-center rounded ${
-                  currentPage === page
-                    ? "bg-[#111427] text-white"
-                    : "text-gray-400 hover:bg-[#111427]"
-                }`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
+            {(() => {
+              // Calculate the range of page numbers to display
+              let startPage = Math.max(
+                1,
+                currentPage - Math.floor(PAGINATION_BUTTONS_LIMIT / 2)
+              );
+              const endPage = Math.min(
+                totalPages,
+                startPage + PAGINATION_BUTTONS_LIMIT - 1
+              );
+
+              // Adjust startPage if we're near the end
+              if (endPage - startPage + 1 < PAGINATION_BUTTONS_LIMIT) {
+                startPage = Math.max(1, endPage - PAGINATION_BUTTONS_LIMIT + 1);
+              }
+
+              return Array.from(
+                { length: endPage - startPage + 1 },
+                (_, i) => startPage + i
+              ).map((page) => (
+                <button
+                  key={page}
+                  className={`w-8 h-8 flex items-center justify-center rounded ${
+                    currentPage === page
+                      ? "bg-[#111427] text-white"
+                      : "text-gray-400 hover:bg-[#111427]"
+                  }`}
+                  onClick={() => handlePageChange(page)}
+                >
+                  {page}
+                </button>
+              ));
+            })()}
 
             <button
               className="px-3 py-1 rounded text-[#B34AFE] cursor-pointer flex items-center"
-              onClick={() => {
-                if (currentPage < totalPages)
-                  setCurrentPage((prev) => prev + 1);
-              }}
+              onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
             >
               Next
