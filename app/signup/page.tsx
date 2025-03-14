@@ -25,39 +25,67 @@ export default function SignUpPage() {
   // List of blocked email domains
   const blockedEmailDomains = [
     // Personal email providers
-    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com", "protonmail.com",
-    "mail.com", "zoho.com", "yandex.com", "gmx.com", "live.com", "msn.com",
-    
+    "gmail.com",
+    "yahoo.com",
+    "outlook.com",
+    "hotmail.com",
+    "aol.com",
+    "icloud.com",
+    "protonmail.com",
+    "mail.com",
+    "zoho.com",
+    "yandex.com",
+    "gmx.com",
+    "live.com",
+    "msn.com",
+
     // Temporary/disposable email providers
-    "temp-mail.org", "tempmail.com", "guerrillamail.com", "mailinator.com", "10minutemail.com",
-    "throwawaymail.com", "yopmail.com", "getnada.com", "dispostable.com", "sharklasers.com",
-    "trashmail.com", "maildrop.cc", "tempr.email", "fakeinbox.com", "tempinbox.com", "burpcollaborator.net"
+    "temp-mail.org",
+    "tempmail.com",
+    "guerrillamail.com",
+    "mailinator.com",
+    "10minutemail.com",
+    "throwawaymail.com",
+    "yopmail.com",
+    "getnada.com",
+    "dispostable.com",
+    "sharklasers.com",
+    "trashmail.com",
+    "maildrop.cc",
+    "tempr.email",
+    "fakeinbox.com",
+    "tempinbox.com",
+    "burpcollaborator.net",
   ];
 
   // Email validation function
   const validateEmail = (email: string): boolean => {
     if (!email) return false;
-    
+
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setEmailError("Please enter a valid email address");
       return false;
     }
-    
+
     // Check if domain is in blocked list
-    const domain = email.split('@')[1].toLowerCase();
+    const domain = email.split("@")[1].toLowerCase();
     if (blockedEmailDomains.includes(domain)) {
-      setEmailError("Please use a work email. Personal and temporary emails are not allowed.");
+      setEmailError(
+        "Please use a work email. Personal and temporary emails are not allowed."
+      );
       return false;
     }
-    
+
     // Check for common patterns of disposable emails
     if (/temp|fake|disposable|trash|throw|junk/.test(domain)) {
-      setEmailError("Please use a work email. Temporary emails are not allowed.");
+      setEmailError(
+        "Please use a work email. Temporary emails are not allowed."
+      );
       return false;
     }
-    
+
     setEmailError(null);
     return true;
   };
@@ -135,24 +163,29 @@ export default function SignUpPage() {
           <div className="mt-[80px] text-[35px] xl:text-[45px] font-[500]">
             Track, Analyze & Stay
           </div>
-          <div className="text-[35px] xl:text-[45px] font-[500]">Ahead of Cyber Threats</div>
+          <div className="text-[35px] xl:text-[45px] font-[500]">
+            Ahead of Cyber Threats
+          </div>
           <div className="xl:mt-[80px] mt-[40px] flex flex-col justify-center gap-y-[50px]">
             <div className="flex items-center gap-x-[10px]">
               <Image src={Shield} alt="Shield" width={45} height={45} />
               <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
-              Access a comprehensive database of monitored threat actors 
+                Track 10,000+ sources – Real-time monitoring of cyber threats
+                and intelligence.
               </p>
             </div>
             <div className="flex items-center gap-x-[10px]">
               <Image src={Shield} alt="Shield" width={45} height={45} />
               <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
-              Access a comprehensive database of monitored threat actors 
+                Raw, noise-free data – Direct mentions of brands, threats, and
+                entities.
               </p>
             </div>
             <div className="flex items-center gap-x-[10px]">
               <Image src={Shield} alt="Shield" width={45} height={45} />
               <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
-              Access a comprehensive database of monitored threat actors 
+                Automated insights – AI-driven filtering and categorization for
+                action-ready intelligence.
               </p>
             </div>
           </div>
@@ -170,7 +203,9 @@ export default function SignUpPage() {
             }}
           >
             <div className="mb-[50px]" style={{ lineHeight: "1.5" }}>
-              <p className="text-[36px] font-[500] text-center">Create an Account</p>
+              <p className="text-[36px] font-[500] text-center">
+                Create an Account
+              </p>
               <p className="text-[16px] font-[400] text-center">
                 Enter your details to create your account
               </p>
@@ -204,10 +239,14 @@ export default function SignUpPage() {
                   value={email}
                   onChange={handleEmailChange}
                   className={`px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full ${
-                    emailError ? "border-red-400" : "border-[rgba(255,255,255,0.30)]"
+                    emailError
+                      ? "border-red-400"
+                      : "border-[rgba(255,255,255,0.30)]"
                   }`}
                   style={{
-                    border: emailError ? "1px solid rgba(255, 100, 100, 0.5)" : "1px solid rgba(255, 255, 255, 0.30)",
+                    border: emailError
+                      ? "1px solid rgba(255, 100, 100, 0.5)"
+                      : "1px solid rgba(255, 255, 255, 0.30)",
                     borderRadius: "12px",
                   }}
                 />
@@ -248,7 +287,9 @@ export default function SignUpPage() {
                   )}
                 </button>
               </div>
-              {error && <p className="text-sm text-red-400 mt-[15px]">{error}</p>}
+              {error && (
+                <p className="text-sm text-red-400 mt-[15px]">{error}</p>
+              )}
               <button
                 type="submit"
                 className="w-full text-white"
@@ -270,17 +311,6 @@ export default function SignUpPage() {
                   Sign In
                 </Link>
               </p>
-              <div className="terms support care flex justify-center gap-[20px] mt-[10px]">
-                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
-                  Terms & Conditions
-                </p>
-                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
-                  Support
-                </p>
-                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
-                  Customer Care
-                </p>
-              </div>
             </form>
           </div>
         </div>

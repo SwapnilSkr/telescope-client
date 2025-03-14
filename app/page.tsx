@@ -94,24 +94,29 @@ export default function LoginPage() {
           <div className="mt-[80px] text-[35px] xl:text-[45px] font-[500]">
             Track, Analyze & Stay
           </div>
-          <div className="text-[35px] xl:text-[45px] font-[500]">Ahead of Cyber Threats</div>
+          <div className="text-[35px] xl:text-[45px] font-[500]">
+            Ahead of Cyber Threats
+          </div>
           <div className="xl:mt-[80px] mt-[40px] flex flex-col justify-center gap-y-[50px]">
             <div className="flex items-center gap-x-[10px]">
               <Image src={Shield} alt="Shield" width={45} height={45} />
               <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
-              Access a comprehensive database of monitored threat actors 
+                Track 10,000+ sources – Real-time monitoring of cyber threats
+                and intelligence.
               </p>
             </div>
             <div className="flex items-center gap-x-[10px]">
               <Image src={Shield} alt="Shield" width={45} height={45} />
               <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
-              Access a comprehensive database of monitored threat actors 
+                Raw, noise-free data – Direct mentions of brands, threats, and
+                entities.
               </p>
             </div>
             <div className="flex items-center gap-x-[10px]">
               <Image src={Shield} alt="Shield" width={45} height={45} />
               <p className="xl:text-[18px] text-[16px] text-white font-[400] cursor-pointer text-left">
-              Access a comprehensive database of monitored threat actors 
+                Automated insights – AI-driven filtering and categorization for
+                action-ready intelligence.
               </p>
             </div>
           </div>
@@ -250,17 +255,6 @@ export default function LoginPage() {
                   Sign Up
                 </Link>
               </p>
-              <div className="terms support care flex justify-center gap-[20px] mt-[10px]">
-                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
-                  Terms & Conditions
-                </p>
-                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
-                  Support
-                </p>
-                <p className="text-[16px] text-white/30 font-[400] cursor-pointer hover:text-white underline text-center">
-                  Customer Care
-                </p>
-              </div>
             </form>
           </div>
         </div>
