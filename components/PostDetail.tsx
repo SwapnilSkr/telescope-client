@@ -40,6 +40,60 @@ export function PostDetail({ post }: PostDetailProps) {
     setIsTranslated(false);
   }, [post]);
 
+  const convertUTCToIST = (utcDate: Date): Date => {
+  if (!utcDate || isNaN(utcDate.getTime())) {
+    return new Date();
+  }
+  
+  // IST is UTC+5:30
+  const istOffsetHours = 5;
+  const istOffsetMinutes = 30;
+  
+  // Add the offset to get IST time
+  return new Date(
+    utcDate.getTime() + (istOffsetHours * 60 * 60 * 1000) + (istOffsetMinutes * 60 * 1000)
+  );
+};
+
+  // Helper function to safely parse timestamps
+  const parseTimestamp = (timestamp: string): Date | null => {
+    if (!timestamp) return null;
+    
+    try {
+      // First try: standard format
+      let date = new Date(timestamp);
+      
+      // Second try: ensure the timestamp has the 'Z' suffix for UTC time if not already present
+      if (isNaN(date.getTime())) {
+        const formattedTimestamp = timestamp.endsWith("Z") 
+          ? timestamp 
+          : `${timestamp}Z`;
+        date = new Date(formattedTimestamp);
+      }
+      
+      // Third try: remove Z if it's already there
+      if (isNaN(date.getTime()) && timestamp.endsWith("Z")) {
+        date = new Date(timestamp.slice(0, -1));
+      }
+      
+      // Fourth try: if it's a number string, try parsing as a Unix timestamp
+      if (isNaN(date.getTime()) && /^\d+$/.test(timestamp)) {
+        date = new Date(parseInt(timestamp));
+      }
+      
+      // Check if the date is valid after all attempts
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid timestamp after all parsing attempts:", timestamp);
+        return null;
+      }
+      
+      return date;
+    } catch (error) {
+      console.error("Error parsing timestamp:", error);
+      return null;
+    }
+  };
+
   const handleTranslate = async () => {
     try {
       setIsTranslating(true);
@@ -99,37 +153,49 @@ export function PostDetail({ post }: PostDetailProps) {
     }
   };
 
-  const timestamp = currentPost.timestamp.endsWith("Z")
-    ? currentPost.timestamp
-    : `${currentPost.timestamp}Z`;
-  const utcDate = new Date(timestamp);
+  // Get a valid date object or current date as fallback
+  const utcDate = parseTimestamp(currentPost.timestamp) || (() => {
+    console.warn("Using placeholder date for invalid timestamp:", currentPost.timestamp);
+    // Use a placeholder date (January 1, 2023) instead of current date
+    return new Date(2023, 0, 1);
+  })();
 
-  const istOptions: Intl.DateTimeFormatOptions = {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  };
+  // Format dates safely
+  let formattedDate = "";
+  let formattedTime = "";
+  
+  try {
+    const istOptions: Intl.DateTimeFormatOptions = {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    };
 
-  const istDate = new Intl.DateTimeFormat("en-IN", istOptions).format(utcDate);
-  const [date, time] = istDate.split(", ");
+    // This line was causing the error before
+    const istDate = new Intl.DateTimeFormat("en-IN", istOptions).format(utcDate);
+    
+    formattedDate = new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(utcDate);
 
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(utcDate);
-
-  const formattedTime = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  }).format(utcDate);
+    formattedTime = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    }).format(utcDate);
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    formattedDate = "Date unavailable";
+    formattedTime = "Time unavailable";
+  }
 
   const getThreatLevel = (id: string | number) => {
     const idString = id.toString();

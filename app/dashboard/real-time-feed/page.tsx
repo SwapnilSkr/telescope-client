@@ -56,6 +56,23 @@ interface Group {
   title: string;
 }
 
+interface SocketMessageData {
+  type?: string;
+  data: SocketMessage[];
+}
+
+interface SocketMessage {
+  id: string | number;
+  message_id?: number;
+  group_id?: number;
+  channel: string;
+  timestamp: string;
+  content: string;
+  tags?: string[];
+  media?: string | Media;
+  has_previous?: boolean;
+}
+
 export default function RealTimeFeed() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -91,6 +108,7 @@ export default function RealTimeFeed() {
   const [loadingPrevious, setLoadingPrevious] = useState<boolean>(false);
 
   // Fetch posts based on URL parameters
+  
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
@@ -135,7 +153,65 @@ export default function RealTimeFeed() {
       if (!response.ok) throw new Error("Failed to fetch posts");
 
       const data = await response.json();
-      setPosts(data.messages);
+      
+      // Convert UTC timestamps to IST
+      const postsWithISTTimestamps = data.messages.map((post: Post) => {
+        // Parse the UTC timestamp - handle different possible formats
+        let utcDate: Date;
+        
+        try {
+          // Try to parse the timestamp
+          utcDate = new Date(post.timestamp);
+          
+          // If the date is invalid, try alternative parsing methods
+          if (isNaN(utcDate.getTime())) {
+            // Try with/without 'Z' suffix
+            const alternateTimestamp = post.timestamp.endsWith("Z")
+              ? post.timestamp.slice(0, -1)
+              : `${post.timestamp}Z`;
+            utcDate = new Date(alternateTimestamp);
+            
+            // If still invalid and it's a numeric string, try parsing as Unix timestamp
+            if (isNaN(utcDate.getTime()) && /^\d+$/.test(post.timestamp)) {
+              utcDate = new Date(parseInt(post.timestamp));
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing timestamp:", error, "Timestamp:", post.timestamp);
+          // Return post unchanged if we can't parse the timestamp
+          return post;
+        }
+        
+        // Check if the date is valid after all parsing attempts
+        if (!isNaN(utcDate.getTime())) {
+          // Convert to IST (UTC+5:30) by adding 5 hours and 30 minutes
+          const istDate = new Date(utcDate.getTime() + (5 * 60 + 30) * 60 * 1000);
+          
+          // Format the date in ISO format with milliseconds and proper timezone offset
+          // Format: YYYY-MM-DDTHH:mm:ss.sssZ
+          const year = istDate.getFullYear();
+          const month = String(istDate.getMonth() + 1).padStart(2, '0');
+          const day = String(istDate.getDate()).padStart(2, '0');
+          const hours = String(istDate.getHours()).padStart(2, '0');
+          const minutes = String(istDate.getMinutes()).padStart(2, '0');
+          const seconds = String(istDate.getSeconds()).padStart(2, '0');
+          const milliseconds = String(istDate.getMilliseconds()).padStart(3, '0');
+          
+          // Create the ISO string with IST timezone offset (+05:30)
+          const isoString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+05:30`;
+          
+          // Return the post with the IST timestamp
+          return {
+            ...post,
+            timestamp: isoString,
+          };
+        }
+        
+        // If the date is invalid after all attempts, return the post unchanged
+        return post;
+      });
+      
+      setPosts(postsWithISTTimestamps);
       setTotalPages(data.total_pages);
     } catch (error) {
       console.error("Error fetching posts:", error);
@@ -269,25 +345,27 @@ export default function RealTimeFeed() {
   }, [groups, groupSearch]);
 
   // WebSocket connection for real-time updates
+  // Socket.IO client connection with proper auth
   useEffect(() => {
-    const socketInstance = io(BASE_URL, {
+    if (!accessToken) return;
+
+    const socketInstance: Socket = io(BASE_URL, {
       path: "/socket.io/",
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       withCredentials: true,
+      auth: {
+        token: accessToken, // Pass token for authentication
+      },
     });
 
     socketInstance.on("connect", () => {
-      console.log("Socket connected");
+      console.log("Socket connected with ID:", socketInstance.id);
     });
 
-    socketInstance.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
-
-    socketInstance.on("connect_error", (error) => {
+    socketInstance.on("connect_error", (error: Error) => {
       console.error("Socket connection error:", error);
     });
 
@@ -295,6 +373,7 @@ export default function RealTimeFeed() {
 
     return () => {
       if (socketInstance) {
+        console.log("Cleaning up socket connection");
         socketInstance.off("connect");
         socketInstance.off("disconnect");
         socketInstance.off("connect_error");
@@ -302,97 +381,197 @@ export default function RealTimeFeed() {
         socketInstance.disconnect();
       }
     };
-  }, []);
+  }, [accessToken]);
 
   // Handle real-time updates
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("new_messages", (data) => {
-      console.log("New messages received:", data);
+    // Handler for individual new message
+    const handleNewMessage = (data: any) => {
+      console.log("New individual message received:", data);
 
-      if (data?.data && Array.isArray(data.data)) {
-        // Skip updates during active loading or on paginated views
-        if (loading || parseInt(getParamValue("page", "1"), 10) > 1) {
-          console.log(
-            "Skipping real-time update - loading or not on first page"
-          );
-          return;
-        }
+      // Skip updates during active loading or on paginated views
+      if (loading || parseInt(getParamValue("page", "1"), 10) > 1) {
+        console.log("Skipping real-time update - loading or not on first page");
+        return;
+      }
 
-        // Group messages by group_id and get latest per group
-        const groupedNewMessages = data.data.reduce(
-          (acc: Record<number, any[]>, message: any) => {
-            if (!acc[message.group_id]) {
-              acc[message.group_id] = [];
-            }
-            acc[message.group_id].push(message);
-            return acc;
-          },
-          {} as Record<number, any[]>
-        );
+      // Determine the structure of the incoming message
+      let message: SocketMessage;
+      if (data.type === "new_message" && data.data) {
+        // Structure is {type: "new_message", data: messageObject}
+        message = data.data;
+      } else if (data.id || data.message_id) {
+        // Message is directly in the data object
+        message = data;
+      } else {
+        console.warn("Unexpected message format:", data);
+        return;
+      }
 
-        const latestGroupMessages = Object.keys(groupedNewMessages).map(
-          (groupId) => {
-            const groupMessages = groupedNewMessages[parseInt(groupId)];
-            return groupMessages.sort(
-              (a: any, b: any) =>
-                new Date(b.timestamp).getTime() -
-                new Date(a.timestamp).getTime()
-            )[0];
+      // Log the timestamp for debugging
+      console.log(
+        `Message timestamp: "${
+          message.timestamp
+        }" (${typeof message.timestamp})`
+      );
+
+      // Check if timestamp is valid
+      try {
+        const testDate = new Date(message.timestamp);
+        if (isNaN(testDate.getTime())) {
+          console.warn("Invalid timestamp detected:", message.timestamp);
+          // Instead of using current time, try to parse it differently or use a placeholder
+          // Try parsing without 'Z' if it ends with Z, or add Z if it doesn't
+          const alternateTimestamp = message.timestamp.endsWith("Z")
+            ? message.timestamp.slice(0, -1)
+            : `${message.timestamp}Z`;
+
+          const alternateDate = new Date(alternateTimestamp);
+          if (!isNaN(alternateDate.getTime())) {
+            message.timestamp = alternateDate.toISOString();
+          } else {
+            // If still invalid, use a placeholder date from the past instead of current time
+            // This ensures it doesn't appear as "just now" incorrectly
+            message.timestamp = new Date(Date.now() - 86400000).toISOString(); // 24 hours ago
+            console.warn("Using placeholder timestamp");
           }
+        }
+      } catch (error) {
+        console.error("Error parsing timestamp:", error);
+        message.timestamp = new Date(Date.now() - 86400000).toISOString(); // 24 hours ago
+      }
+
+      // Transform the message to match expected Post format
+      const transformedMessage: Post = {
+        id: String(message.id), // Ensure ID is string
+        message_id: message.message_id || Number(message.id),
+        group_id:
+          message.group_id || extractGroupIdFromChannel(message.channel), // Handle either format
+        channel: message.channel,
+        timestamp: message.timestamp,
+        content: message.content || "No content",
+        tags: message.tags || [],
+        media: transformMediaObject(message.media),
+        has_previous:
+          message.has_previous !== undefined ? message.has_previous : true,
+      };
+
+      console.log("Transformed message:", transformedMessage);
+
+      // Update the posts state
+      setPosts((prevPosts) => {
+        // Check if we already have a post from this group
+        const existingPostIndex = prevPosts.findIndex(
+          (post) => post.group_id === transformedMessage.group_id
         );
 
-        // Update the posts state
-        setPosts((prevPosts) => {
-          // Get existing posts by group_id
-          const existingPostsByGroup = prevPosts.reduce(
-            (acc: Record<number, Post>, post) => {
-              acc[post.group_id] = post;
-              return acc;
-            },
-            {} as Record<number, Post>
-          );
+        // If not found or new message is more recent, update posts
+        if (
+          existingPostIndex === -1 ||
+          new Date(transformedMessage.timestamp) >
+            new Date(prevPosts[existingPostIndex].timestamp)
+        ) {
+          // Create a new array with either the updated or added post
+          let newPosts: Post[];
+          if (existingPostIndex !== -1) {
+            // Replace existing post
+            newPosts = [...prevPosts];
+            newPosts[existingPostIndex] = transformedMessage;
+          } else {
+            // Add new post
+            newPosts = [...prevPosts, transformedMessage];
+          }
 
-          // Merge new messages, keeping only the latest per group
-          latestGroupMessages.forEach((newMessage: any) => {
-            const existingPost = existingPostsByGroup[newMessage.group_id];
-            if (
-              !existingPost ||
-              new Date(newMessage.timestamp) > new Date(existingPost.timestamp)
-            ) {
-              existingPostsByGroup[newMessage.group_id] = {
-                ...newMessage,
-                has_previous: true,
-              };
-            }
+          // Sort according to current sort order
+          const currentSortBy = getParamValue("sortBy", "latest");
+          const sortedPosts = newPosts.sort((a, b) => {
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            return currentSortBy === "latest" ? timeB - timeA : timeA - timeB;
           });
 
-          // Get current sort order and limit
-          const currentSortBy = getParamValue("sortBy", "latest") as
-            | "latest"
-            | "oldest";
+          // Limit to current page size
           const currentLimit = parseInt(
             getParamValue("limit", ITEMS_PER_PAGE.toString()),
             10
           );
+          console.log(
+            "✅ Message processed and posts updated",
+            transformedMessage.id
+          );
+          return sortedPosts.slice(0, currentLimit);
+        }
 
-          // Return properly sorted results
-          return Object.values(existingPostsByGroup)
-            .sort((a: Post, b: Post) => {
-              const timeA = new Date(a.timestamp).getTime();
-              const timeB = new Date(b.timestamp).getTime();
-              return currentSortBy === "latest" ? timeB - timeA : timeA - timeB;
-            })
-            .slice(0, currentLimit);
-        });
-      }
-    });
-
-    return () => {
-      socket.off("new_messages");
+        // If neither condition is met, return posts unchanged
+        console.log("⚠️ Message ignored (not newer than existing posts)");
+        return prevPosts;
+      });
     };
-  }, [socket, getParamValue, loading]);
+
+    // Register event handler for individual messages
+    socket.on("new_message", handleNewMessage);
+
+    // Cleanup
+    return () => {
+      socket.off("new_message", handleNewMessage);
+    };
+  }, [socket, getParamValue, loading, groups]);
+
+  const extractGroupIdFromChannel = (channel: string): number => {
+    // If no direct group_id is provided, try to extract from channel name
+    if (!channel) return Math.floor(Math.random() * 10000); // Last resort fallback
+
+    const groupMatch = groups.find(
+      (g) => g.title.toLowerCase() === channel.toLowerCase()
+    );
+    return groupMatch
+      ? parseInt(String(groupMatch.group_id))
+      : parseInt(channel.replace(/\D/g, "") || "0");
+  };
+
+  const transformMediaObject = (
+    media: string | Media | undefined
+  ): Media | undefined => {
+    if (!media) return undefined;
+
+    // If media is just a URL string, convert to object
+    if (typeof media === "string") {
+      const fileExt = media.split(".").pop()?.toLowerCase() || "";
+      const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt);
+      const isVideo = ["mp4", "mkv", "avi", "mov"].includes(fileExt);
+
+      if (isImage) {
+        return {
+          type: "image",
+          url: media,
+          alt: "Image content",
+        };
+      } else if (isVideo) {
+        return {
+          type: "video",
+          url: media,
+          thumbnail: "Telegram Video",
+        };
+      } else {
+        return {
+          type: "file",
+          url: media,
+          name: media.split("/").pop(),
+        };
+      }
+    }
+
+    // If already object, ensure it has all required fields
+    return {
+      type: (media as Media).type || "file",
+      url: (media as Media).url,
+      alt: (media as Media).alt || "Media content",
+      thumbnail: (media as Media).thumbnail,
+      name: (media as Media).name,
+    };
+  };
 
   // Pagination controls
   const renderPaginationControls = () => {
@@ -530,49 +709,95 @@ export default function RealTimeFeed() {
   };
 
   // Format relative time (updated to display date and time on separate lines)
+  // Replace the formatRelativeTime function in the RealTimeFeed component
   const formatRelativeTime = (timestamp: string) => {
-    const date = new Date(
-      timestamp.endsWith("Z") ? timestamp : `${timestamp}Z`
-    );
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHrs = diffMs / (1000 * 60 * 60);
+    // Safety check for invalid timestamp
+    if (!timestamp) {
+      return "Unknown time";
+    }
 
-    if (diffHrs < 1) {
-      const mins = Math.floor(diffMs / (1000 * 60));
-      return `${mins} min ago`;
-    } else if (diffHrs < 24) {
-      return `${Math.floor(diffHrs)} hr ago`;
-    } else {
-      // Format date and time separately for multi-line display
-      const dateOptions: Intl.DateTimeFormatOptions = {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      };
+    try {
+      // Parse the date safely - try different formats if needed
+      let date: Date | null = null;
 
-      const timeOptions: Intl.DateTimeFormatOptions = {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      };
+      // Try standard ISO format first
+      date = new Date(timestamp);
 
-      const formattedDate = new Intl.DateTimeFormat(
-        "en-US",
-        dateOptions
-      ).format(date);
-      const formattedTime = new Intl.DateTimeFormat(
-        "en-US",
-        timeOptions
-      ).format(date);
+      // If invalid, try with/without 'Z' suffix
+      if (isNaN(date.getTime())) {
+        const alternateTimestamp = timestamp.endsWith("Z")
+          ? timestamp.slice(0, -1)
+          : `${timestamp}Z`;
+        date = new Date(alternateTimestamp);
+      }
 
-      return (
-        <div className="flex flex-col">
-          <span>{formattedDate}</span>
-          <span>{formattedTime}</span>
-        </div>
-      );
+      // Still invalid? Try parsing as a Unix timestamp
+      if (isNaN(date.getTime()) && /^\d+$/.test(timestamp)) {
+        date = new Date(parseInt(timestamp));
+      }
+
+      // If all parsing attempts failed
+      if (!date || isNaN(date.getTime())) {
+        console.warn(
+          "Invalid timestamp after all parsing attempts:",
+          timestamp
+        );
+        return "Invalid date";
+      }
+
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffSecs = diffMs / 1000;
+      const diffMins = diffSecs / 60;
+      const diffHrs = diffMins / 60;
+      const diffDays = diffHrs / 24;
+
+      // More granular time display
+      if (diffSecs < 60) {
+        return `just now`;
+      } else if (diffMins < 60) {
+        const mins = Math.floor(diffMins);
+        return `${mins} min${mins !== 1 ? "s" : ""} ago`;
+      } else if (diffHrs < 24) {
+        const hrs = Math.floor(diffHrs);
+        return `${hrs} hr${hrs !== 1 ? "s" : ""} ago`;
+      } else if (diffDays < 7) {
+        const days = Math.floor(diffDays);
+        return `${days} day${days !== 1 ? "s" : ""} ago`;
+      } else {
+        // Format date and time separately for multi-line display
+        const dateOptions: Intl.DateTimeFormatOptions = {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        };
+
+        const timeOptions: Intl.DateTimeFormatOptions = {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        };
+
+        const formattedDate = new Intl.DateTimeFormat(
+          "en-US",
+          dateOptions
+        ).format(date);
+
+        const formattedTime = new Intl.DateTimeFormat(
+          "en-US",
+          timeOptions
+        ).format(date);
+
+        return (
+          <div className="flex flex-col">
+            <span>{formattedDate}</span>
+            <span>{formattedTime}</span>
+          </div>
+        );
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error, "Timestamp:", timestamp);
+      return "Date error";
     }
   };
 
