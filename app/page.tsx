@@ -27,8 +27,16 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [bgLoaded, setBgLoaded] = useState(false);
   const { setUser, setAccessToken, user, fetchUser } = useUserStore();
   const router = useRouter();
+
+  useEffect(() => {
+    // Preload the background image
+    const img = new (window.Image as any)();
+    img.src = LoginBackground.src;
+    img.onload = () => setBgLoaded(true);
+  }, []);
 
   useEffect(() => {
     fetchUser();
@@ -72,18 +80,25 @@ export default function LoginPage() {
     <div
       className="flex min-h-screen w-full justify-center overflow-hidden"
       style={{
-        backgroundImage: `url(${LoginBackground.src})`,
+        backgroundColor: "#06002C", // Base background color always visible
+        backgroundImage: bgLoaded ? `url(${LoginBackground.src})` : 'none',
         backgroundSize: "cover",
-        backgroundColor: "#06002C",
         backgroundPosition: "left center",
         backgroundRepeat: "no-repeat",
         height: "100vh",
         width: "100vw",
         margin: 0,
         padding: 0,
+        transition: "background-image 0.3s ease-in-out",
       }}
     >
-      <div className="p-[100px] flex items-center justify-between w-full h-full">
+      {!bgLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-white/30 border-t-[#A958E3] rounded-full animate-spin"></div>
+        </div>
+      )}
+      
+      <div className={`p-[100px] flex items-center justify-between w-full h-full ${bgLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
         <div className="login-title lg:block hidden text-white w-[50%] h-full py-[50px]">
           <Image
             src={TelescopeLogo}
