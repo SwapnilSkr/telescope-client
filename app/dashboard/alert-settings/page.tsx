@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import Pencil from "@/public/pencil.png";
 import Image from "next/image";
-import AlertMask from "@/public/alertmask.png"
+import AlertMask from "@/public/alertmask.png";
 import { TeamsSvg } from "@/components/svgs/TeamsSvg";
 import { SlackSvg } from "@/components/svgs/SlackSvg";
 import { WebhookSvg } from "@/components/svgs/Webhook";
@@ -28,9 +29,10 @@ export default function AlertSettings() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentIntegration, setCurrentIntegration] = useState<any>(null);
-  const [apiKey, setApiKey] = useState("");
-  const [apiSecret, setApiSecret] = useState("");
+  const [botToken, setBotToken] = useState("");
+  const [channelName, setChannelName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isIntegrationSubmitting, setIsIntegrationSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasExistingSettings, setHasExistingSettings] = useState(false);
@@ -49,24 +51,28 @@ export default function AlertSettings() {
       label: "Microsoft teams",
       connected: false,
       svg: <TeamsSvg />,
+      available: false,
     },
     {
       id: "slack",
       label: "Slack",
       connected: false,
       svg: <SlackSvg />,
+      available: true,
     },
     {
       id: "webhook",
       label: "Webhook",
       connected: false,
       svg: <WebhookSvg />,
+      available: false,
     },
     {
       id: "api",
       label: "API",
       connected: false,
       svg: <APISvg />,
+      available: false,
     },
   ]);
 
@@ -75,28 +81,43 @@ export default function AlertSettings() {
     const fetchAlertSettings = async () => {
       try {
         const response = await fetch(`${BASE_URL}/alerts`, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
           },
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch alert settings');
+          throw new Error("Failed to fetch alert settings");
         }
 
         const data = await response.json();
 
         // If alert settings exist, populate the form and set flag
-        if (data.status === 'success' && data.data) {
-          setKeyword(data.data.keyword || '');
+        if (data.status === "success" && data.data) {
+          setKeyword(data.data.keyword || "");
           setSelectedAlertTypes(data.data.alert_types || []);
-          setFrequency(data.data.frequency || '');
+          setFrequency(data.data.frequency || "");
           setHasExistingSettings(true);
+
+          // Check if integration secrets exist and update the UI accordingly
+          const updatedIntegrations = [...integrationTypes];
+
+          if (data.data.slack_secrets) {
+            const slackIndex = updatedIntegrations.findIndex(
+              (integration) => integration.id === "slack"
+            );
+            if (slackIndex !== -1) {
+              updatedIntegrations[slackIndex].connected = true;
+            }
+          }
+
+          // We'll add support for other integrations in the future
+          setIntegrationTypes(updatedIntegrations);
         }
       } catch (error) {
-        console.error('Error fetching alert settings:', error);
+        console.error("Error fetching alert settings:", error);
         // Don't show error to user as this might be their first time setting up alerts
       } finally {
         setIsLoading(false);
@@ -115,94 +136,335 @@ export default function AlertSettings() {
   };
 
   const openConnectModal = (integration: any) => {
+    if (!integration.available) {
+      toast.info(`${integration.label} Integration`, {
+        description: `${integration.label} integration will be available soon. Currently, only Slack is supported.`,
+        duration: 3000,
+      });
+      return;
+    }
+
     setCurrentIntegration(integration);
-    setApiKey("");
-    setApiSecret("");
+    setBotToken("");
+    setChannelName("");
     setIsModalOpen(true);
   };
 
   const openEditModal = (integration: any) => {
+    if (!integration.available) {
+      toast.info(`${integration.label} Integration`, {
+        description: `${integration.label} integration will be available soon. Currently, only Slack is supported.`,
+        duration: 3000,
+      });
+      return;
+    }
+
     setCurrentIntegration(integration);
-    // In a real app, you might fetch existing values from an API
-    // For now, we'll just use placeholder values
-    setApiKey("existing-api-key");
-    setApiSecret("existing-api-secret");
+    // Fetch existing values from the API
+    fetchIntegrationCredentials(integration.id);
     setIsEditModalOpen(true);
+  };
+
+  const fetchIntegrationCredentials = async (integrationId: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/alerts`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch integration settings");
+      }
+
+      const data = await response.json();
+
+      // If it's Slack and we have credentials, populate the form
+      if (
+        integrationId === "slack" &&
+        data.status === "success" &&
+        data.data?.slack_secrets
+      ) {
+        setBotToken(data.data.slack_secrets.bot_token || "");
+        setChannelName(data.data.slack_secrets.channel_name || "");
+      }
+    } catch (error) {
+      console.error("Error fetching integration credentials:", error);
+      toast.error("Error", {
+        description:
+          "Failed to fetch integration credentials. Please try again.",
+        duration: 3000,
+      });
+    }
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setIsEditModalOpen(false);
     setCurrentIntegration(null);
+    setBotToken("");
+    setChannelName("");
+    setIsIntegrationSubmitting(false);
   };
 
-  const handleSaveIntegration = () => {
-    setIntegrationTypes((prevIntegrations) =>
-      prevIntegrations.map((integration) =>
-        integration.id === currentIntegration.id
-          ? { ...integration, connected: true }
-          : integration
-      )
-    );
+  const handleSaveIntegration = async () => {
+    if (!botToken.trim()) {
+      toast.error("Validation Error", {
+        description: "Bot Token is required.",
+        duration: 3000,
+      });
+      return;
+    }
 
-    toast.success(`${currentIntegration.label} Connected`, {
-      description: `${currentIntegration.label} has been successfully connected.`,
-      duration: 3000,
-    });
+    if (!channelName.trim()) {
+      toast.error("Validation Error", {
+        description: "Channel Name is required.",
+        duration: 3000,
+      });
+      return;
+    }
 
-    closeModal();
+    // Basic validation for bot token format
+    if (!botToken.trim().startsWith("xoxb-")) {
+      toast.error("Validation Error", {
+        description:
+          "Invalid Bot Token format. Slack Bot Tokens should start with 'xoxb-'",
+        duration: 4000,
+      });
+      return;
+    }
+
+    setIsIntegrationSubmitting(true);
+
+    try {
+      // Prepare integration data
+      const integrationData = {
+        integration: currentIntegration.id,
+        slack_secrets: {
+          bot_token: botToken.trim(),
+          channel_name: channelName.trim(), // No need to add # on the frontend
+        },
+      };
+
+      // Add the appropriate secrets based on integration type
+      if (currentIntegration.id === "slack") {
+        integrationData.slack_secrets = {
+          bot_token: botToken.trim(),
+          channel_name: channelName.trim(), // No need to add # on the frontend
+        };
+      }
+
+      // Send data to the API
+      const response = await fetch(`${BASE_URL}/alerts/integrations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(integrationData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || "Failed to save integration settings"
+        );
+      }
+
+      // Update local state on success
+      setIntegrationTypes((prevIntegrations) =>
+        prevIntegrations.map((integration) =>
+          integration.id === currentIntegration.id
+            ? { ...integration, connected: true }
+            : integration
+        )
+      );
+
+      toast.success(`${currentIntegration.label} Connected`, {
+        description: `${currentIntegration.label} has been successfully connected.`,
+        duration: 3000,
+      });
+
+      closeModal();
+    } catch (error) {
+      console.error("Error saving integration:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to save integration. Please try again.";
+
+      toast.error("Slack Connection Error", {
+        description: errorMessage,
+        duration: 5000,
+      });
+    } finally {
+      setIsIntegrationSubmitting(false);
+    }
   };
 
-  const handleUpdateIntegration = () => {
-    // In a real app, you would update the integration with new credentials
-    
-    toast.success(`${currentIntegration.label} Updated`, {
-      description: `${currentIntegration.label} credentials have been updated.`,
-      duration: 3000,
-    });
-    
-    closeModal();
+  const handleUpdateIntegration = async () => {
+    if (!botToken.trim()) {
+      toast.error("Validation Error", {
+        description: "Bot Token is required.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (!channelName.trim()) {
+      toast.error("Validation Error", {
+        description: "Channel Name is required.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Basic validation for bot token format
+    if (!botToken.trim().startsWith("xoxb-")) {
+      toast.error("Validation Error", {
+        description:
+          "Invalid Bot Token format. Slack Bot Tokens should start with 'xoxb-'",
+        duration: 4000,
+      });
+      return;
+    }
+
+    setIsIntegrationSubmitting(true);
+
+    try {
+      // Prepare integration data
+      const integrationData = {
+        integration: currentIntegration.id,
+        slack_secrets: {
+          bot_token: botToken.trim(),
+          channel_name: channelName.trim(), // No need to add # on the frontend
+        },
+      };
+
+      // Add the appropriate secrets based on integration type
+      if (currentIntegration.id === "slack") {
+        integrationData.slack_secrets = {
+          bot_token: botToken.trim(),
+          channel_name: channelName.trim(), // No need to add # on the frontend
+        };
+      }
+
+      // Send data to the API
+      const response = await fetch(`${BASE_URL}/alerts/integrations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(integrationData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || "Failed to update integration settings"
+        );
+      }
+
+      toast.success(`${currentIntegration.label} Updated`, {
+        description: `${currentIntegration.label} credentials have been updated.`,
+        duration: 3000,
+      });
+
+      closeModal();
+    } catch (error) {
+      console.error("Error updating integration:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update integration. Please try again.";
+
+      toast.error("Slack Connection Error", {
+        description: errorMessage,
+        duration: 5000,
+      });
+    } finally {
+      setIsIntegrationSubmitting(false);
+    }
   };
 
-  const handleDisconnectIntegration = () => {
-    setIntegrationTypes((prevIntegrations) =>
-      prevIntegrations.map((integration) =>
-        integration.id === currentIntegration.id
-          ? { ...integration, connected: false }
-          : integration
-      )
-    );
+  const handleDisconnectIntegration = async () => {
+    setIsIntegrationSubmitting(true);
 
-    toast.error(`${currentIntegration.label} Disconnected`, {
-      description: `${currentIntegration.label} has been disconnected.`,
-      duration: 3000,
-    });
-    
-    closeModal();
+    try {
+      // Send request to disconnect the integration
+      const response = await fetch(
+        `${BASE_URL}/alerts/integrations/disconnect`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ integration: currentIntegration.id }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to disconnect integration");
+      }
+
+      // Update local state
+      setIntegrationTypes((prevIntegrations) =>
+        prevIntegrations.map((integration) =>
+          integration.id === currentIntegration.id
+            ? { ...integration, connected: false }
+            : integration
+        )
+      );
+
+      toast.success(`${currentIntegration.label} Disconnected`, {
+        description: `${currentIntegration.label} has been disconnected.`,
+        duration: 3000,
+      });
+
+      closeModal();
+    } catch (error) {
+      console.error("Error disconnecting integration:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to disconnect integration. Please try again.";
+
+      toast.error("Error", {
+        description: errorMessage,
+        duration: 3000,
+      });
+    } finally {
+      setIsIntegrationSubmitting(false);
+    }
   };
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+
     if (!keyword.trim()) {
       setError("Please enter a keyword or threat actor name");
       return;
     }
-    
+
     if (selectedAlertTypes.length === 0) {
       setError("Please select at least one alert type");
       return;
     }
-    
+
     if (!frequency) {
       setError("Please select an alert frequency");
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Prepare the data for API request
       const alertSettingsData = {
@@ -210,42 +472,54 @@ export default function AlertSettings() {
         alertTypes: selectedAlertTypes,
         frequency,
       };
-      
+
       // Send data to the API
       const response = await fetch(`${BASE_URL}/alerts`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify(alertSettingsData),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to save alert settings');
+        throw new Error(errorData.detail || "Failed to save alert settings");
       }
-      
+
       const responseData = await response.json();
-      
-      if (responseData.status === 'success') {
+
+      if (responseData.status === "success") {
         // Update the flag to indicate user now has settings
         setHasExistingSettings(true);
-        
+
         // Show success message based on create/update
-        const actionVerb = responseData.message.includes("created") ? "created" : "updated";
-        
-        toast.success(`Alert Settings ${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)}`, {
-          description: `Your alert settings have been successfully ${actionVerb}.`,
-          duration: 3000,
-        });
+        const actionVerb = responseData.message.includes("created")
+          ? "created"
+          : "updated";
+
+        toast.success(
+          `Alert Settings ${
+            actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)
+          }`,
+          {
+            description: `Your alert settings have been successfully ${actionVerb}.`,
+            duration: 3000,
+          }
+        );
       } else {
-        throw new Error(responseData.message || 'Failed to save alert settings');
+        throw new Error(
+          responseData.message || "Failed to save alert settings"
+        );
       }
     } catch (error) {
       console.error("Error saving alert settings:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save alert settings. Please try again.';
-      
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to save alert settings. Please try again.";
+
       toast.error("Error", {
         description: errorMessage,
         action: {
@@ -253,7 +527,7 @@ export default function AlertSettings() {
           onClick: () => handleSubmit(e),
         },
       });
-      
+
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -272,16 +546,19 @@ export default function AlertSettings() {
     <div className="text-white min-h-screen">
       {/* Add the Sonner Toaster component */}
       <Toaster position="top-right" richColors />
-      
+
       <h1 className="text-3xl font-bold mb-6">Custom Alert Settings</h1>
 
       <form onSubmit={handleSubmit}>
-        <div className="bg-[#121229] rounded-[26px] p-6 space-y-8" style={{
-          backgroundImage: `url(${AlertMask.src})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          border: "1px solid #22263C",
-        }}>
+        <div
+          className="bg-[#121229] rounded-[26px] p-6 space-y-8"
+          style={{
+            backgroundImage: `url(${AlertMask.src})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            border: "1px solid #22263C",
+          }}
+        >
           {error && (
             <div className="bg-red-500 text-white p-3 rounded-lg text-center">
               {error}
@@ -333,14 +610,17 @@ export default function AlertSettings() {
               </div>
               <div className="flex flex-col space-y-4 w-1/2">
                 {alertTypes.map((type) => (
-                  <div key={type.id} className={`flex items-center p-2 rounded `}>
+                  <div
+                    key={type.id}
+                    className={`flex items-center p-2 rounded `}
+                  >
                     <Checkbox
                       id={type.id}
                       checked={selectedAlertTypes.includes(type.id)}
                       className={
                         selectedAlertTypes.includes(type.id)
                           ? "bg-purple-600 border-purple-600"
-                          : ""
+                          : "border-purple-600"
                       }
                       onCheckedChange={() => toggleAlertType(type.id)}
                     />
@@ -365,6 +645,10 @@ export default function AlertSettings() {
                   <p className="text-sm text-gray-400">
                     Choose on which platform the attack need to get alerted
                   </p>
+                  <p className="text-xs text-purple-400 mt-2">
+                    Note: Currently, only Slack integration is available. Other
+                    integrations will be coming soon.
+                  </p>
                 </div>
               </div>
               <div className="space-y-3 w-1/2">
@@ -378,6 +662,11 @@ export default function AlertSettings() {
                         {integration.svg}
                       </div>
                       <span>{integration.label}</span>
+                      {!integration.available && (
+                        <span className="ml-2 text-xs px-2 py-1 bg-gray-700 rounded-full">
+                          Coming soon
+                        </span>
+                      )}
                     </div>
                     {integration.connected ? (
                       <div className="flex items-center">
@@ -390,6 +679,7 @@ export default function AlertSettings() {
                           size="icon"
                           className="h-8 w-8 rounded-full text-gray-400 hover:text-white"
                           onClick={() => openEditModal(integration)}
+                          disabled={!integration.available}
                         >
                           <Image
                             src={Pencil}
@@ -403,7 +693,11 @@ export default function AlertSettings() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="bg-transparent text-white hover:bg-[#2a2a40]"
+                        className={`${
+                          integration.available
+                            ? "bg-transparent text-white hover:bg-[#2a2a40]"
+                            : "bg-gray-800 text-gray-400 opacity-70 cursor-not-allowed"
+                        }`}
                         style={{
                           borderRadius: "91px",
                           border: "1px solid rgba(255, 255, 255, 0.60)",
@@ -446,7 +740,35 @@ export default function AlertSettings() {
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-6"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Saving..." : hasExistingSettings ? "Update Alert Settings" : "Save Alert Settings"}
+              {isSubmitting ? (
+                <div className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Saving...
+                </div>
+              ) : hasExistingSettings ? (
+                "Update Alert Settings"
+              ) : (
+                "Save Alert Settings"
+              )}
             </Button>
           </div>
         </div>
@@ -487,23 +809,27 @@ export default function AlertSettings() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm mb-2">Add API Key</label>
+                <label className="block text-sm mb-2">Add Channel Name</label>
                 <input
                   type="text"
-                  placeholder="Type API key here"
+                  placeholder="alerts"
                   className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  Enter the channel name without the # prefix (e.g.,
+                  &quot;general&quot;, &quot;alerts&quot;)
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm mb-2">Add API Secret</label>
+                <label className="block text-sm mb-2">Add Bot Token</label>
                 <textarea
-                  placeholder="Type API secret here"
+                  placeholder="Type Bot Token here"
                   className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white h-32 resize-none"
-                  value={apiSecret}
-                  onChange={(e) => setApiSecret(e.target.value)}
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
                 />
               </div>
 
@@ -512,8 +838,35 @@ export default function AlertSettings() {
                   type="button"
                   className="bg-purple-600 hover:bg-purple-700 text-white px-8"
                   onClick={handleSaveIntegration}
+                  disabled={isIntegrationSubmitting}
                 >
-                  Save
+                  {isIntegrationSubmitting ? (
+                    <div className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Saving...
+                    </div>
+                  ) : (
+                    "Save"
+                  )}
                 </Button>
               </div>
             </div>
@@ -556,23 +909,23 @@ export default function AlertSettings() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm mb-2">Update API Key</label>
+                <label className="block text-sm mb-2">Channel Name</label>
                 <input
                   type="text"
-                  placeholder="Type API key here"
+                  placeholder="alerts"
                   className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-sm mb-2">Update API Secret</label>
+                <label className="block text-sm mb-2">Update Bot Token</label>
                 <textarea
-                  placeholder="Type API secret here"
+                  placeholder="Type Bot Token here"
                   className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white h-32 resize-none"
-                  value={apiSecret}
-                  onChange={(e) => setApiSecret(e.target.value)}
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
                 />
               </div>
 
@@ -581,15 +934,69 @@ export default function AlertSettings() {
                   type="button"
                   className="bg-transparent hover:bg-[#2a2a40] border border-gray-600 text-white px-6"
                   onClick={handleDisconnectIntegration}
+                  disabled={isIntegrationSubmitting}
                 >
-                  Disconnect
+                  {isIntegrationSubmitting ? (
+                    <div className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Disconnecting...
+                    </div>
+                  ) : (
+                    "Disconnect"
+                  )}
                 </Button>
                 <Button
                   type="button"
                   className="bg-purple-600 hover:bg-purple-700 text-white px-8"
                   onClick={handleUpdateIntegration}
+                  disabled={isIntegrationSubmitting}
                 >
-                  Update
+                  {isIntegrationSubmitting ? (
+                    <div className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Updating...
+                    </div>
+                  ) : (
+                    "Update"
+                  )}
                 </Button>
               </div>
             </div>
