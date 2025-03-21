@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import useUserStore from "@/stores/userStore";
 import { BASE_URL } from "@/utils/baseUrl";
 import LoginBackground from "@/public/Login_bg.png";
@@ -22,6 +22,14 @@ export default function SignUpPage() {
   const [bgLoaded, setBgLoaded] = useState(false);
   const { user, fetchUser } = useUserStore();
   const router = useRouter();
+  
+  // Verification states
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState<string[]>(Array(6).fill(""));
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const codeInputRefs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(null));
 
   // List of blocked email domains
   const blockedEmailDomains = [
@@ -115,12 +123,79 @@ export default function SignUpPage() {
     }
   }, [user, router]);
 
+  // Handle verification code input
+  const handleVerificationCodeChange = (index: number, value: string) => {
+    if (value.length > 1) {
+      value = value[0]; // Only take the first character if multiple are pasted
+    }
+
+    if (!/^\d*$/.test(value)) {
+      return; // Only allow digits
+    }
+
+    const newVerificationCode = [...verificationCode];
+    newVerificationCode[index] = value;
+    setVerificationCode(newVerificationCode);
+
+    // Move to next input if value is entered
+    if (value && index < 5) {
+      codeInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handle key press in verification input
+  const handleVerificationKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === "Backspace" && !verificationCode[index] && index > 0) {
+      // Move to previous input on backspace if current input is empty
+      codeInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      // Move to previous input on left arrow
+      codeInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      // Move to next input on right arrow
+      codeInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handle paste in verification input
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text/plain").trim();
+    
+    if (!/^\d+$/.test(pastedData)) {
+      return; // Only allow digits
+    }
+    
+    const digits = pastedData.slice(0, 6).split("");
+    const newVerificationCode = [...verificationCode];
+    
+    digits.forEach((digit, index) => {
+      if (index < 6) {
+        newVerificationCode[index] = digit;
+      }
+    });
+    
+    setVerificationCode(newVerificationCode);
+    
+    // Focus the appropriate input after paste
+    if (digits.length < 6) {
+      codeInputRefs.current[digits.length]?.focus();
+    } else {
+      codeInputRefs.current[5]?.focus();
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setLoading(true);
 
     // Validate email before submission
     if (!validateEmail(email)) {
+      setLoading(false);
       return;
     }
 
@@ -133,15 +208,103 @@ export default function SignUpPage() {
         body: JSON.stringify({ email, password, username }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Registration failed");
+        throw new Error(data.detail || "Registration failed");
       }
 
-      router.push("/");
+      // Show verification modal
+      setShowVerificationModal(true);
     } catch (error) {
       console.error("Registration failed:", error);
       setError(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmail = async () => {
+    setVerificationError(null);
+    setLoading(true);
+    
+    const code = verificationCode.join("");
+    
+    if (code.length !== 6) {
+      setVerificationError("Please enter the complete 6-digit code");
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${BASE_URL}/verify_email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          verification_code: code,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || "Verification failed");
+      }
+      
+      // Store user and token
+      const { user: userData, access_token } = data;
+      useUserStore.getState().setUser(userData);
+      useUserStore.getState().setAccessToken(access_token);
+      
+      // Redirect to dashboard
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Verification failed:", error);
+      setVerificationError(
+        error instanceof Error ? error.message : "An error occurred during verification"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendVerificationCode = async () => {
+    setVerificationError(null);
+    setIsResending(true);
+    
+    try {
+      const response = await fetch(`${BASE_URL}/resend_verification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to resend verification code");
+      }
+      
+      // Reset verification code inputs
+      setVerificationCode(Array(6).fill(""));
+      
+      // Focus first input
+      setTimeout(() => {
+        codeInputRefs.current[0]?.focus();
+      }, 100);
+      
+    } catch (error) {
+      console.error("Failed to resend code:", error);
+      setVerificationError(
+        error instanceof Error ? error.message : "Failed to resend verification code"
+      );
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -307,7 +470,7 @@ export default function SignUpPage() {
               )}
               <button
                 type="submit"
-                className="w-full text-white"
+                className="w-full text-white mt-[25px] flex items-center justify-center"
                 style={{
                   background:
                     "linear-gradient(89deg, #A958E3 -2.61%, #8B0EE5 53.73%, #6908AE 116.23%)",
@@ -315,9 +478,12 @@ export default function SignUpPage() {
                   padding: "10px",
                   fontSize: "20px",
                   fontWeight: "500",
-                  marginTop: "25px",
                 }}
+                disabled={loading}
               >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                ) : null}
                 Sign Up
               </button>
               <p className="text-center text-[20px] text-white font-[500] mt-[30px]">
@@ -330,6 +496,82 @@ export default function SignUpPage() {
           </div>
         </div>
       </div>
+
+      {/* Email Verification Modal */}
+      {showVerificationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div 
+            className="bg-[#0D0640] text-white p-8 rounded-xl max-w-md w-full relative"
+            style={{
+              background: "linear-gradient(321deg, rgba(191, 191, 191, 0.06) 5.98%, rgba(0, 0, 0, 0.00) 66.28%), rgba(13, 6, 64, 0.95)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              boxShadow: "0px 0px 20px 0px rgba(0, 0, 0, 0.3)",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <h2 className="text-2xl font-semibold mb-4 text-center">Verify Your Email</h2>
+            <p className="text-center mb-6">
+              We&apos;ve sent a 6-digit verification code to <span className="text-[#BC69F7] font-medium">{email}</span>. 
+              Please enter it below to verify your account.
+            </p>
+            
+            <div className="flex justify-center gap-2 mb-6">
+              {verificationCode.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => {
+                    codeInputRefs.current[index] = el;
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleVerificationCodeChange(index, e.target.value)}
+                  onKeyDown={(e) => handleVerificationKeyDown(index, e)}
+                  onPaste={index === 0 ? handlePaste : undefined}
+                  className="w-12 h-14 text-center text-xl bg-[#1A123A] border border-[#A958E3]/30 rounded-lg focus:border-[#A958E3] focus:ring-1 focus:ring-[#A958E3] focus:outline-none"
+                  style={{
+                    caretColor: "transparent",
+                  }}
+                />
+              ))}
+            </div>
+            
+            {verificationError && (
+              <p className="text-red-400 text-sm text-center mb-4">
+                {verificationError}
+              </p>
+            )}
+            
+            <button
+              onClick={verifyEmail}
+              className="w-full flex items-center justify-center py-3 mb-4"
+              style={{
+                background: "linear-gradient(89deg, #A958E3 -2.61%, #8B0EE5 53.73%, #6908AE 116.23%)",
+                borderRadius: "12px",
+                fontSize: "16px",
+                fontWeight: "500",
+              }}
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+              ) : null}
+              Verify Email
+            </button>
+            
+            <div className="text-center">
+              <button
+                onClick={resendVerificationCode}
+                className="text-[#BC69F7] text-sm font-medium hover:underline disabled:opacity-50 disabled:hover:no-underline"
+                disabled={isResending}
+              >
+                {isResending ? "Sending..." : "Didn't receive the code? Resend"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
