@@ -21,6 +21,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend,
+  Cell,
 } from "recharts";
 import { BASE_URL } from "@/utils/baseUrl";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +81,27 @@ interface AlertType {
   total_count: number;
 }
 
+interface WordCloudItem {
+  text: string;
+  value: number;
+}
+
+interface WordCloudData {
+  words: WordCloudItem[];
+  time_period: string;
+}
+
+interface ThreatActor {
+  threat_actor: string;
+  messages_count: number;
+  group_id: number;
+}
+
+interface ThreatActorData {
+  threat_actors: ThreatActor[];
+  time_period: string;
+}
+
 export default function ModuleOverview() {
   const [timeframe, setTimeframe] = useState("month");
   const [threatCount, setThreatCount] = useState(0);
@@ -86,6 +111,15 @@ export default function ModuleOverview() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingThreatCount, setIsLoadingThreatCount] = useState(true);
   const [isLoadingAlertTypes, setIsLoadingAlertTypes] = useState(true);
+  
+  // New state variables for word cloud and threat actor cloud
+  const [analyticsType, setAnalyticsType] = useState<"word-cloud" | "threat-actor-cloud">("word-cloud");
+  const [analyticsTimePeriod, setAnalyticsTimePeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [wordCloudData, setWordCloudData] = useState<WordCloudData | null>(null);
+  const [threatActorData, setThreatActorData] = useState<ThreatActorData | null>(null);
+  const [isLoadingWordCloud, setIsLoadingWordCloud] = useState(true);
+  const [isLoadingThreatActor, setIsLoadingThreatActor] = useState(true);
+  
   const accessToken = localStorage.getItem("access_token");
 
   // Fetch threat count
@@ -158,6 +192,80 @@ export default function ModuleOverview() {
     setAlertTimePeriod(e.target.value);
   };
 
+  // New handler for analytics type change
+  const handleAnalyticsTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAnalyticsType(e.target.value as "word-cloud" | "threat-actor-cloud");
+  };
+
+  // New handler for analytics time period change
+  const handleAnalyticsTimePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAnalyticsTimePeriod(e.target.value as "daily" | "weekly" | "monthly");
+  };
+
+  // Fetch word cloud data
+  useEffect(() => {
+    const fetchWordCloudData = async () => {
+      if (analyticsType !== "word-cloud") return;
+      
+      setIsLoadingWordCloud(true);
+      try {
+        const response = await fetch(
+          `${BASE_URL}/word-cloud?time_period=${analyticsTimePeriod}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setWordCloudData(data);
+      } catch (error) {
+        console.error("Error fetching word cloud data:", error);
+      } finally {
+        setIsLoadingWordCloud(false);
+      }
+    };
+
+    fetchWordCloudData();
+  }, [analyticsType, analyticsTimePeriod, accessToken]);
+
+  // Fetch threat actor cloud data
+  useEffect(() => {
+    const fetchThreatActorData = async () => {
+      if (analyticsType !== "threat-actor-cloud") return;
+      
+      setIsLoadingThreatActor(true);
+      try {
+        const response = await fetch(
+          `${BASE_URL}/threat-actor-cloud?time_period=${analyticsTimePeriod}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setThreatActorData(data);
+      } catch (error) {
+        console.error("Error fetching threat actor data:", error);
+      } finally {
+        setIsLoadingThreatActor(false);
+      }
+    };
+
+    fetchThreatActorData();
+  }, [analyticsType, analyticsTimePeriod, accessToken]);
+
   // Monthly data (existing)
   const monthlyData = [
     { date: "1 Oct", akira: 200, fog: 100, funkSec: 0 },
@@ -213,6 +321,80 @@ export default function ModuleOverview() {
         </div>
       ))}
     </>
+  );
+
+  // Generate colors for bar charts
+  const getBarColors = (count: number) => {
+    const baseColors = [
+      "#B435D4", "#4A3AFF", "#FF9458", "#C893FD", "#5D69E3", 
+      "#E85ADB", "#7C4DFF", "#00C2FF", "#FF5C8D", "#FFB545"
+    ];
+    
+    // Return a subset of colors based on the count needed
+    return baseColors.slice(0, count);
+  };
+
+  // Format word cloud data for chart
+  const formatWordCloudForChart = (data: WordCloudData | null) => {
+    if (!data || !data.words || data.words.length === 0) {
+      return [];
+    }
+    
+    return data.words.map(item => ({
+      name: item.text,
+      value: item.value
+    }));
+  };
+
+  // Format threat actor data for chart
+  const formatThreatActorForChart = (data: ThreatActorData | null) => {
+    if (!data || !data.threat_actors || data.threat_actors.length === 0) {
+      return [];
+    }
+    
+    return data.threat_actors.map(actor => ({
+      name: actor.threat_actor,
+      value: actor.messages_count
+    }));
+  };
+
+  // Generate chart data based on analytics type
+  const getAnalyticsChartData = () => {
+    if (analyticsType === "word-cloud") {
+      return formatWordCloudForChart(wordCloudData);
+    } else {
+      return formatThreatActorForChart(threatActorData);
+    }
+  };
+
+  // Determine loading state
+  const isLoadingAnalytics = () => {
+    return analyticsType === "word-cloud" ? isLoadingWordCloud : isLoadingThreatActor;
+  };
+
+  // Get title for analytics chart
+  const getAnalyticsChartTitle = () => {
+    if (analyticsType === "word-cloud") {
+      return "Word Frequency Analysis";
+    } else {
+      return "Threat Actor Activity";
+    }
+  };
+
+  // Render skeleton for analytics chart - simplified bar chart skeleton
+  const renderAnalyticsChartSkeleton = () => (
+    <div className="w-full h-full flex items-end justify-center space-x-6 px-8 pb-20">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <Skeleton 
+          key={i}
+          className="w-14 rounded-t-md bg-[#2A2E3F]" 
+          style={{ 
+            height: `${Math.floor(Math.random() * 150) + 50}px`,
+            opacity: 0.7 + (Math.random() * 0.3) // Subtle opacity variation
+          }}
+        />
+      ))}
+    </div>
   );
 
   return (
@@ -346,96 +528,44 @@ export default function ModuleOverview() {
           >
             <div className="flex flex-wrap justify-between items-center mb-4 md:mb-6">
               <h3 className="text-[16px] xs:text-[18px] md:text-[20px] font-medium text-[#F1F1F1] whitespace-nowrap mr-4">
-                Category Analytics
+                {getAnalyticsChartTitle()}
               </h3>
-              <div className="flex flex-wrap items-center gap-x-[10px] md:gap-x-[20px] gap-y-2">
-                <div className="flex items-center gap-[5px]">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    className="flex-shrink-0"
-                  >
-                    <circle
-                      cx="5.46193"
-                      cy="5.00002"
-                      r="4.5381"
-                      fill="url(#paint0_linear_3_2456)"
-                    />
-                    <defs>
-                      <linearGradient
-                        id="paint0_linear_3_2456"
-                        x1="5.46193"
-                        y1="0.461914"
-                        x2="5.46193"
-                        y2="9.53812"
-                        gradientUnits="userSpaceOnUse"
-                      >
-                        <stop stop-color="#4A3AFF" />
-                        <stop offset="1" stop-color="#6D3AFF" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">
-                    Akira
-                  </p>
-                </div>
-                <div className="flex items-center gap-[5px]">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    className="flex-shrink-0"
-                  >
-                    <circle
-                      cx="4.69191"
-                      cy="5.00002"
-                      r="4.5381"
-                      fill="#C893FD"
-                    />
-                  </svg>
-                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">
-                    Fog
-                  </p>
-                </div>
-                <div className="flex items-center gap-[5px]">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    className="flex-shrink-0"
-                  >
-                    <circle
-                      cx="5.46193"
-                      cy="5.00002"
-                      r="4.5381"
-                      fill="#FF9458"
-                    />
-                  </svg>
-                  <p className="font-[400] text-[#615E83] text-xs sm:text-sm whitespace-nowrap">
-                    FunkSec
-                  </p>
-                </div>
-                <div className="select relative">
+              <div className="flex space-x-4">
+                {/* Analytics Type Selector */}
+                <div className="relative">
                   <select
-                    value={timeframe}
-                    onChange={(e) => setTimeframe(e.target.value)}
-                    style={{
-                      color: "rgba(255, 255, 255, 0.90)",
-                      paddingRight: "28px",
-                    }}
-                    className="bg-[#443759] text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none"
+                    className="bg-[#443759] text-white text-sm px-4 py-2 pr-10 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none"
+                    value={analyticsType}
+                    onChange={handleAnalyticsTypeChange}
+                    disabled={isLoadingAnalytics()}
                   >
-                    <option value="month">Monthly</option>
-                    <option value="week">Weekly</option>
+                    <option value="word-cloud">Word Cloud</option>
+                    <option value="threat-actor-cloud">Threat Actors</option>
                   </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
+                    <svg
+                      className="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Time Period Selector */}
+                <div className="relative">
+                  <select
+                    className="bg-[#443759] text-white text-sm px-4 py-2 pr-10 rounded-full border border-[#413B58] focus:outline-none cursor-pointer appearance-none"
+                    value={analyticsTimePeriod}
+                    onChange={handleAnalyticsTimePeriodChange}
+                    disabled={isLoadingAnalytics()}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-white">
                     <svg
                       className="fill-current h-4 w-4"
                       xmlns="http://www.w3.org/2000/svg"
@@ -447,85 +577,73 @@ export default function ModuleOverview() {
                 </div>
               </div>
             </div>
+
+            {/* Chart Area */}
             <div className="w-full h-[75%] sm:h-[80%] md:h-[85%]">
-              {typeof window !== "undefined" && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartData}
-                    margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="0"
-                      stroke="#413B58"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="date"
-                      axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
-                      tickLine={false}
-                      tick={{ fill: "#756D78", fontSize: 12 }}
-                      padding={{ left: 5 }}
-                    />
-                    <YAxis
-                      axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
-                      tickLine={false}
-                      tick={{ fill: "#756D78", fontSize: 12 }}
-                      domain={[0, 500]}
-                      tickCount={6}
-                      label={{
-                        value: "No of Victims",
-                        angle: -90,
-                        position: "insideLeft",
-                        style: {
-                          textAnchor: "middle",
-                          fill: "#D3D3D3",
-                          fontSize: 14,
-                        },
-                      }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#1D2032",
-                        borderColor: "#22263C",
-                        borderRadius: "8px",
-                        padding: "10px",
-                      }}
-                      labelStyle={{ color: "#fff", marginBottom: "5px" }}
-                      itemStyle={{ color: "#fff", padding: "2px 0" }}
-                      formatter={(value, name) => {
-                        let displayName = name;
-                        if (name === "akira") displayName = "Akira";
-                        if (name === "fog") displayName = "Fog";
-                        if (name === "funkSec") displayName = "FunkSec";
-                        return [`${value} victims`, displayName];
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="akira"
-                      stroke="#4A3AFF"
-                      strokeWidth={2}
-                      dot={{ fill: "#4A3AFF", r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="fog"
-                      stroke="#C893FD"
-                      strokeWidth={2}
-                      dot={{ fill: "#C893FD", r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="funkSec"
-                      stroke="#FF9458"
-                      strokeWidth={2}
-                      dot={{ fill: "#FF9458", r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              {isLoadingAnalytics() ? (
+                renderAnalyticsChartSkeleton()
+              ) : (
+                typeof window !== "undefined" && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={getAnalyticsChartData()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 90 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#413B58" vertical={true} horizontal={true} />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
+                        tickLine={false}
+                        tick={{ fill: "#E5E5EF", fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        interval={0}
+                        height={80}
+                      />
+                      <YAxis 
+                        axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
+                        tickLine={false}
+                        tick={{ fill: "#756D78", fontSize: 12 }}
+                        domain={[0, 'dataMax']}
+                        allowDecimals={false}
+                        label={{ 
+                          value: analyticsType === "word-cloud" ? "Mentions" : "Messages", 
+                          angle: -90, 
+                          position: "insideLeft",
+                          style: { fill: "#E5E5EF", fontSize: 12 }
+                        }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#1D2032",
+                          borderColor: "#22263C",
+                          borderRadius: "8px",
+                          padding: "10px",
+                        }}
+                        labelStyle={{ color: "#fff", marginBottom: "5px" }}
+                        itemStyle={{ color: "#B435D4" }}
+                        formatter={(value: any) => {
+                          return [
+                            `${value.toLocaleString()} ${analyticsType === "word-cloud" ? "mentions" : "messages"}`,
+                            analyticsType === "word-cloud" ? "Frequency" : "Activity"
+                          ];
+                        }}
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        radius={[4, 4, 0, 0]}
+                        barSize={30}
+                      >
+                        {getAnalyticsChartData().map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={getBarColors(getAnalyticsChartData().length)[index % 10]} 
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )
               )}
             </div>
           </div>
@@ -728,7 +846,7 @@ export default function ModuleOverview() {
                       fill="#E3E3E3"
                     />
                     <path
-                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L21.3165 12.7164C21.7748 12.4736 21.9477 11.9099 21.7 11.4573C21.4529 11.0054 20.8816 10.8374 20.4239 11.0797L11.8713 15.6082C11.5108 15.7991 11.2965 15.9115 11.1271 15.9821C10.9755 16.0451 10.9249 16.0459 10.907 16.0459C10.8891 16.0459 10.8385 16.0451 10.687 15.9821C10.5175 15.9115 10.3033 15.7991 9.94281 15.6082L1.39023 11.0797Z"
+                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L19.6176 9.15151C20.1527 8.87083 20.6444 8.61293 20.994 8.35859C21.356 8.09527 21.8178 7.6573 21.8159 6.96245C21.8139 6.26762 21.3499 5.83213 20.9864 5.57074C20.6353 5.31827 20.1422 5.06301 19.6056 4.78521L12.7004 1.20925C12.3885 1.04768 12.1009 0.898711 11.8447 0.79431C11.5619 0.679086 11.258 0.591919 10.9079 0.591919ZM10.6919 2.51125C10.8406 2.45064 10.8902 2.4499 10.9079 2.4499C10.9256 2.4499 10.9753 2.45064 11.124 2.51125C11.2904 2.5791 11.501 2.68708 11.8556 2.87073L18.6678 6.39851C19.1582 6.65251 19.4901 6.82606 19.7188 6.96805C19.4909 7.11126 19.16 7.28659 18.671 7.54318L11.8654 11.114C11.5073 11.3019 11.2946 11.4124 11.1263 11.4819C10.9759 11.544 10.9258 11.5447 10.9079 11.5447C10.8901 11.5447 10.8399 11.544 10.6895 11.4819C10.5213 11.4124 10.3086 11.3019 9.95052 11.114L3.1449 7.54318C2.65586 7.28658 2.32502 7.11126 2.09712 6.96805C2.32581 6.82607 2.65761 6.65251 3.14806 6.39853L9.96026 2.87073C10.3149 2.68708 10.5254 2.5791 10.6919 2.51125Z"
                       fill="#E3E3E3"
                     />
                     <path
@@ -764,7 +882,7 @@ export default function ModuleOverview() {
                       fill="#E3E3E3"
                     />
                     <path
-                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L21.3165 12.7164C21.7748 12.4736 21.9477 11.9099 21.7 11.4573C21.4529 11.0054 20.8816 10.8374 20.4239 11.0797L11.8713 15.6082C11.5108 15.7991 11.2965 15.9115 11.1271 15.9821C10.9755 16.0451 10.9249 16.0459 10.907 16.0459C10.8891 16.0459 10.8385 16.0451 10.687 15.9821C10.5175 15.9115 10.3033 15.7991 9.94281 15.6082L1.39023 11.0797Z"
+                      d="M1.39023 11.0797C0.932581 10.8374 0.361175 11.0054 0.114037 11.4573C-0.133544 11.9099 0.0392938 12.4736 0.497706 12.7164L9.08318 17.2623C9.40037 17.4303 9.69257 17.5851 9.95305 17.6936C10.2405 17.8132 10.55 17.9039 10.907 17.9039C11.2641 17.9039 11.5736 17.8132 11.861 17.6936C12.1215 17.5851 12.4138 17.4303 12.7309 17.2623L19.6176 9.15151C20.1527 8.87083 20.6444 8.61293 20.994 8.35859C21.356 8.09527 21.8178 7.6573 21.8159 6.96245C21.8139 6.26762 21.3499 5.83213 20.9864 5.57074C20.6353 5.31827 20.1422 5.06301 19.6056 4.78521L12.7004 1.20925C12.3885 1.04768 12.1009 0.898711 11.8447 0.79431C11.5619 0.679086 11.258 0.591919 10.9079 0.591919ZM10.6919 2.51125C10.8406 2.45064 10.8902 2.4499 10.9079 2.4499C10.9256 2.4499 10.9753 2.45064 11.124 2.51125C11.2904 2.5791 11.501 2.68708 11.8556 2.87073L18.6678 6.39851C19.1582 6.65251 19.4901 6.82606 19.7188 6.96805C19.4909 7.11126 19.16 7.28659 18.671 7.54318L11.8654 11.114C11.5073 11.3019 11.2946 11.4124 11.1263 11.4819C10.9759 11.544 10.9258 11.5447 10.9079 11.5447C10.8901 11.5447 10.8399 11.544 10.6895 11.4819C10.5213 11.4124 10.3086 11.3019 9.95052 11.114L3.1449 7.54318C2.65586 7.28658 2.32502 7.11126 2.09712 6.96805C2.32581 6.82607 2.65761 6.65251 3.14806 6.39853L9.96026 2.87073C10.3149 2.68708 10.5254 2.5791 10.6919 2.51125Z"
                       fill="#E3E3E3"
                     />
                     <path
