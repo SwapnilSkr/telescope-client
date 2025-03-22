@@ -23,7 +23,10 @@ import { APISvg } from "@/components/svgs/APISvg";
 import { BASE_URL } from "@/utils/baseUrl";
 
 export default function AlertSettings() {
-  const [keyword, setKeyword] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState<string>("none");
+  const [selectedThreatActor, setSelectedThreatActor] = useState<string>("none");
+  const [countries, setCountries] = useState<string[]>([]);
+  const [threatActors, setThreatActors] = useState<string[]>([]);
   const [frequency, setFrequency] = useState("");
   const [selectedAlertTypes, setSelectedAlertTypes] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,6 +39,7 @@ export default function AlertSettings() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasExistingSettings, setHasExistingSettings] = useState(false);
+  const [isIntegrationsLoading, setIsIntegrationsLoading] = useState(false);
   const accessToken = localStorage.getItem("access_token");
 
   const alertTypes = [
@@ -76,29 +80,54 @@ export default function AlertSettings() {
     },
   ]);
 
+  // Function to reset form values to defaults
+  const resetToDefaults = () => {
+    setSelectedCountry("none");
+    setSelectedThreatActor("none");
+    setSelectedAlertTypes([]);
+    setFrequency("immediate");
+    setHasExistingSettings(false);
+  };
+
   // Fetch existing alert settings when component mounts
   useEffect(() => {
     const fetchAlertSettings = async () => {
+      setIsLoading(true);
       try {
         const response = await fetch(`${BASE_URL}/alerts`, {
-          method: "GET",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch alert settings");
-        }
-
         const data = await response.json();
 
-        // If alert settings exist, populate the form and set flag
         if (data.status === "success" && data.data) {
-          setKeyword(data.data.keyword || "");
-          setSelectedAlertTypes(data.data.alert_types || []);
-          setFrequency(data.data.frequency || "");
+          // Get keywords from the API response
+          const { keywords } = data.data;
+          
+          // Extract country and threatActor, ensure they are trimmed and default to "none" if empty
+          const country = keywords?.country?.trim() || "none";
+          const threatActor = keywords?.threat_actor?.trim() || "none";
+          
+          setSelectedCountry(country);
+          setSelectedThreatActor(threatActor);
+          
+          // Get alert types - we'll always use alertTypes for consistency
+          // First look for alertTypes in the response
+          if (data.data.alertTypes) {
+            setSelectedAlertTypes(data.data.alertTypes || []);
+          }
+          // Fallback to alert_types if alertTypes doesn't exist (for backward compatibility)
+          else if (data.data.alert_types) {
+            setSelectedAlertTypes(data.data.alert_types || []);
+          }
+          else {
+            // No alert types found, set to empty array
+            setSelectedAlertTypes([]);
+          }
+          
+          setFrequency(data.data.frequency || "immediate");
           setHasExistingSettings(true);
 
           // Check if integration secrets exist and update the UI accordingly
@@ -115,16 +144,76 @@ export default function AlertSettings() {
 
           // We'll add support for other integrations in the future
           setIntegrationTypes(updatedIntegrations);
+        } else {
+          console.log("No alert settings found, using defaults");
+          resetToDefaults();
         }
       } catch (error) {
         console.error("Error fetching alert settings:", error);
-        // Don't show error to user as this might be their first time setting up alerts
+        toast.error("Error loading alert settings");
+        resetToDefaults();
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAlertSettings();
+  }, [accessToken]);
+
+  // Fetch threat actors from the groups endpoint
+  useEffect(() => {
+    const fetchThreatActors = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/groups`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch threat actors");
+        }
+
+        const data = await response.json();
+        
+        if (data.groups && data.groups.length > 0) {
+          // Extract unique titles from the groups
+          const actorNamesSet = new Set<string>();
+          data.groups.forEach((group: any) => {
+            if (group.title) actorNamesSet.add(group.title);
+          });
+          const actorNames = Array.from(actorNamesSet).sort();
+          setThreatActors(actorNames);
+        }
+      } catch (error) {
+        console.error("Error fetching threat actors:", error);
+        toast.error("Failed to load threat actors", {
+          duration: 3000,
+        });
+      }
+    };
+
+    // Initialize the list of common countries
+    const commonCountries = [
+      "Afghanistan", "Albania", "Algeria", "Argentina", "Australia", 
+      "Austria", "Belarus", "Belgium", "Brazil", "Bulgaria", "Cambodia", 
+      "Canada", "Chile", "China", "Colombia", "Cuba", "Czech Republic", 
+      "Denmark", "Egypt", "Ethiopia", "Finland", "France", "Germany", 
+      "Greece", "Hungary", "Iceland", "India", "Indonesia", "Iran", 
+      "Iraq", "Ireland", "Israel", "Italy", "Japan", "Kazakhstan", 
+      "Kenya", "Latvia", "Lebanon", "Libya", "Malaysia", "Mexico", 
+      "Morocco", "Netherlands", "New Zealand", "Nigeria", "North Korea", 
+      "Norway", "Pakistan", "Philippines", "Poland", "Portugal", 
+      "Romania", "Russia", "Saudi Arabia", "Serbia", "Singapore", 
+      "South Africa", "South Korea", "Spain", "Sweden", "Switzerland", 
+      "Syria", "Taiwan", "Thailand", "Turkey", "Ukraine", 
+      "United Arab Emirates", "United Kingdom", "United States", "Vietnam"
+    ];
+    
+    setCountries(commonCountries);
+    fetchThreatActors();
   }, [accessToken]);
 
   const toggleAlertType = (typeId: string) => {
@@ -447,32 +536,35 @@ export default function AlertSettings() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!keyword.trim()) {
-      setError("Please enter a keyword or threat actor name");
+    
+    // Only validate that at least one keyword is selected (not "none")
+    if (selectedCountry === "none" && selectedThreatActor === "none") {
+      toast.error("Please select at least one country or threat actor.");
       return;
     }
-
-    if (selectedAlertTypes.length === 0) {
-      setError("Please select at least one alert type");
-      return;
-    }
-
+    
     if (!frequency) {
-      setError("Please select an alert frequency");
+      toast.error("Please select an alert frequency.");
       return;
     }
-
+    
+    // Convert "none" to empty string for API
+    const country = selectedCountry === "none" ? "" : selectedCountry;
+    const threatActor = selectedThreatActor === "none" ? "" : selectedThreatActor;
+    
     setIsSubmitting(true);
-
+    
     try {
       // Prepare the data for API request
       const alertSettingsData = {
-        keyword: keyword.trim(),
-        alertTypes: selectedAlertTypes,
-        frequency,
+        keywords: {
+          country: country,
+          threat_actor: threatActor,
+        },
+        alertTypes: selectedAlertTypes, // This is now optional
+        frequency: frequency,
       };
-
+      
       // Send data to the API
       const response = await fetch(`${BASE_URL}/alerts`, {
         method: "POST",
@@ -482,7 +574,7 @@ export default function AlertSettings() {
         },
         body: JSON.stringify(alertSettingsData),
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || "Failed to save alert settings");
@@ -567,36 +659,45 @@ export default function AlertSettings() {
 
           <div>
             <p className="text-base font-medium mb-2">
-              Search Keyword or threat actor
+              Country and Threat Actor Selection
             </p>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-3 flex items-center">
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <path
-                    d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">
+                  Select Country
+                </label>
+                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                  <SelectTrigger className="bg-[#1e1e38] border-none text-white py-6">
+                    <SelectValue placeholder="Select a country" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1e1e38] border-[#2a2a40] text-white max-h-80">
+                    <SelectItem value="none">None</SelectItem>
+                    {countries.map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Input
-                className="pl-10 py-6 text-white w-full"
-                style={{
-                  borderRadius: "136.083px",
-                  border: "1.389px solid rgba(255, 255, 255, 0.15)",
-                  background: "rgba(255, 255, 255, 0.11)",
-                }}
-                placeholder="Enter keyword or threat actor name"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                required
-              />
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">
+                  Select Threat Actor
+                </label>
+                <Select value={selectedThreatActor} onValueChange={setSelectedThreatActor}>
+                  <SelectTrigger className="bg-[#1e1e38] border-none text-white py-6">
+                    <SelectValue placeholder="Select a threat actor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1e1e38] border-[#2a2a40] text-white max-h-80">
+                    <SelectItem value="none">None</SelectItem>
+                    {threatActors.map((actor) => (
+                      <SelectItem key={actor} value={actor}>
+                        {actor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

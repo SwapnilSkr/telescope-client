@@ -101,7 +101,7 @@ export default function DashboardLayout({
     );
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100">
       <Sidebar className="hidden lg:flex" />
       <div className="flex-1 bg-[#020017] flex flex-col overflow-hidden">
         <header

@@ -14,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { BASE_URL } from "@/utils/baseUrl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import Image from "next/image";
+import { toast, Toaster } from "sonner";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -56,6 +57,9 @@ export default function AlertLogs() {
   const [loading, setLoading] = useState<boolean>(false);
   const [alertTypes, setAlertTypes] = useState<string[]>(["All"]);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const [alertToDelete, setAlertToDelete] = useState<Alert | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Fetch alert types for the dropdown
   useEffect(() => {
@@ -104,6 +108,9 @@ export default function AlertLogs() {
       setTotalCount(data.total_count);
     } catch (error) {
       console.error("Error fetching alerts:", error);
+      toast.error("Failed to fetch alerts", {
+        description: "There was a problem fetching your alerts. Please try again."
+      });
     }
     setLoading(false);
   }, [searchKeyword, selectedType, selectedNotified, currentPage, accessToken]);
@@ -176,6 +183,64 @@ export default function AlertLogs() {
     }
   };
 
+  // Delete alert
+  const handleDeleteClick = (e: React.MouseEvent, alert: Alert) => {
+    e.stopPropagation(); // Prevent opening the sheet
+    setAlertToDelete(alert);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!alertToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${BASE_URL}/delete-alert/${alertToDelete._id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to delete alert");
+      }
+
+      // Update local state to remove the deleted alert
+      setAlerts(alerts.filter((alert) => alert._id !== alertToDelete._id));
+      
+      // Show success toast
+      toast.success("Alert Deleted", {
+        description: "The alert has been successfully deleted.",
+      });
+      
+      // Close modal
+      setIsDeleteModalOpen(false);
+      setAlertToDelete(null);
+      
+      // If we deleted the last item on the page and there are more pages, go to the previous page
+      if (alerts.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      } else {
+        // Otherwise, just refresh the current page
+        fetchAlerts();
+      }
+    } catch (error) {
+      console.error("Error deleting alert:", error);
+      toast.error("Delete Failed", {
+        description: error instanceof Error ? error.message : "Failed to delete alert. Please try again.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setAlertToDelete(null);
+  };
+
   // Get threat level badge color
   const getThreatLevelColor = (level: string) => {
     switch (level) {
@@ -192,6 +257,9 @@ export default function AlertLogs() {
 
   return (
     <div className="text-white min-h-screen">
+      {/* Toast notifications */}
+      <Toaster position="top-right" richColors />
+      
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Alert Logs</h1>
       </div>
@@ -291,7 +359,8 @@ export default function AlertLogs() {
           <div className="col-span-5 md:col-span-5">Alert Content</div>
           <div className="col-span-3 md:col-span-2">Type</div>
           <div className="col-span-3 md:col-span-2">Notified</div>
-          <div className="col-span-1 md:col-span-1 hidden sm:block">Date</div>
+          <div className="col-span-1 md:col-span-2 hidden sm:block">Date</div>
+          <div className="col-span-1 text-center">Actions</div>
         </div>
 
         {/* Display Alerts */}
@@ -319,8 +388,13 @@ export default function AlertLogs() {
                 </div>
 
                 {/* Date Skeleton */}
-                <div className="col-span-1 md:col-span-1 hidden sm:block">
+                <div className="col-span-1 md:col-span-2 hidden sm:block">
                   <Skeleton className="h-6 w-16 bg-[#1c1c36]" />
+                </div>
+                
+                {/* Actions Skeleton */}
+                <div className="col-span-1 flex justify-center">
+                  <Skeleton className="h-8 w-8 rounded-full bg-[#1c1c36]" />
                 </div>
 
                 {/* Bottom border */}
@@ -393,8 +467,20 @@ export default function AlertLogs() {
                       </div>
 
                       {/* Date */}
-                      <div className="col-span-1 md:col-span-1 text-sm text-gray-400 hidden sm:block">
+                      <div className="col-span-1 md:col-span-2 text-sm text-gray-400 hidden sm:block">
                         {format(new Date(alert.date_detected), "MM/dd/yy")}
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="col-span-1 flex justify-center items-center">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full text-gray-400 hover:text-red-400 hover:bg-red-900/20"
+                          onClick={(e) => handleDeleteClick(e, alert)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
 
                       {/* Bottom border */}
@@ -510,16 +596,151 @@ export default function AlertLogs() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-[#191927] rounded-lg w-full max-w-sm p-6 border border-gray-800">
+            <h3 className="text-xl font-semibold mb-4">Delete Alert</h3>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete this alert? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button 
+                variant="outline" 
+                onClick={cancelDelete}
+                className="bg-[#191927] border-gray-600 text-white hover:bg-gray-800"
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <div className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Deleting...
+                  </div>
+                ) : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // Alert Detail Component for the Sheet
 function AlertDetail({ alert }: { alert: Alert }) {
+  const accessToken = localStorage.getItem("access_token");
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const handleDelete = async () => {
+    if (confirm("Are you sure you want to delete this alert? This action cannot be undone.")) {
+      setIsDeleting(true);
+      try {
+        const response = await fetch(`${BASE_URL}/delete-alert/${alert._id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to delete alert");
+        }
+
+        toast.success("Alert Deleted", {
+          description: "The alert has been successfully deleted.",
+        });
+        
+        // Close the sheet after deletion
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        
+        // Wait a moment for the sheet to close, then refresh the alerts
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } catch (error) {
+        console.error("Error deleting alert:", error);
+        toast.error("Delete Failed", {
+          description: error instanceof Error ? error.message : "Failed to delete alert. Please try again.",
+        });
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
+  
   return (
     <div className="p-6 h-full overflow-y-auto">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Alert Details</h2>
+        <div className="flex justify-between items-start">
+          <h2 className="text-2xl font-bold mb-4">Alert Details</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <div className="flex items-center">
+                <svg
+                  className="animate-spin mr-2 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Deleting...
+              </div>
+            ) : (
+              <>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Alert
+              </>
+            )}
+          </Button>
+        </div>
 
         <div className="flex flex-wrap gap-2 mb-4">
           {alert.alert_types.length > 0 &&

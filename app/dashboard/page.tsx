@@ -471,7 +471,7 @@ export default function ModuleOverview() {
                   <ExclamationLogo />
                 </div>
                 <div className="text-white w-[80%] text-[15px] xl:text-[18px] font-medium">
-                  No of Threats Triggered
+                  No of Alerts Triggered
                 </div>
               </div>
               <div className="flex justify-center items-center gap-[15px] w-full">
@@ -661,7 +661,7 @@ export default function ModuleOverview() {
         >
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-medium text-white">
-              Total Threats Triggered
+              Total Alerts Triggered
             </h3>
             <div className="relative">
               <select
