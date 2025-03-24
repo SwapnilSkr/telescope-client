@@ -28,6 +28,8 @@ import {
 } from "recharts";
 import { BASE_URL } from "@/utils/baseUrl";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TagCloud } from 'react-tagcloud';
+import { scaleLinear } from 'd3-scale';
 
 const MonitorLogo = () => {
   return (
@@ -381,19 +383,250 @@ export default function ModuleOverview() {
     }
   };
 
-  // Render skeleton for analytics chart - simplified bar chart skeleton
-  const renderAnalyticsChartSkeleton = () => (
-    <div className="w-full h-full flex items-end justify-center space-x-6 px-8 pb-20">
-      {Array.from({ length: 10 }).map((_, i) => (
+  // Render word cloud with proper spacing and containment
+  const renderWordCloud = (data: any[]) => {
+    if (!data || data.length === 0) {
+      return (
+        <div className="h-full w-full flex items-center justify-center text-gray-400">
+          No data available
+        </div>
+      );
+    }
+
+    // Sort data by value (frequency) - highest first
+    const sortedData = [...data].sort((a, b) => b.value - a.value);
+    
+    // Set a limit on how many words to show to prevent overcrowding
+    const limitedData = sortedData.slice(0, Math.min(sortedData.length, 25)); // Reduced from 30 to 25 for better fit
+    
+    // Find max and min values for scaling
+    const maxValue = Math.max(...limitedData.map(item => item.value));
+    const minValue = Math.min(...limitedData.map(item => item.value));
+    const valueRange = maxValue - minValue;
+    
+    // Create color palette for word cloud
+    const getWordColor = (value: number) => {
+      // Calculate where this value falls in our range (0-1)
+      const normalizedValue = valueRange === 0 ? 0.5 : (value - minValue) / valueRange;
+      
+      // Purple to pink gradient
+      const colors = [
+        "#B435D4", // Primary brand purple
+        "#BE4DD9",
+        "#C766DE",
+        "#D07FE3",
+        "#D997E8",
+        "#E2B0ED",
+        "#EB69D3",
+        "#F443B9",
+        "#FC1E9F",
+        "#FF0085" 
+      ];
+      
+      const colorIndex = Math.min(Math.floor(normalizedValue * colors.length), colors.length - 1);
+      return colors[colorIndex];
+    };
+
+    // Calculate font size - keep sizes smaller to fit in container
+    const getFontSize = (value: number, layer: number) => {
+      const normalizedValue = valueRange === 0 ? 0.5 : (value - minValue) / valueRange;
+      // Center word gets largest size
+      if (layer === 0) {
+        return 38; // Fixed size for center word
+      }
+      // Outer layers get progressively smaller
+      const baseSize = 28 - (layer * 4);
+      return Math.max(14, Math.min(baseSize, baseSize * (0.6 + normalizedValue * 0.4)));
+    };
+    
+    // Create a simple fixed layout to ensure containment
+    const wordPositions = () => {
+      const result = [];
+      
+      // The highest frequency word goes in the center
+      result.push({
+        ...limitedData[0],
+        x: 50,
+        y: 50,
+        fontSize: getFontSize(limitedData[0].value, 0),
+        color: getWordColor(limitedData[0].value),
+        fontWeight: 700,
+        zIndex: 30,
+        layer: 0
+      });
+      
+      // Skip first word (already placed in center)
+      // Place remaining words in concentric rings
+      const layers = 3; // Number of rings
+      const wordsPerLayer = Math.ceil((limitedData.length - 1) / layers);
+      
+      // Calculate safe radii to stay within container
+      const radiusPerLayer = [0, 22, 35, 44]; // percentage from center
+      
+      for (let i = 1; i < limitedData.length; i++) {
+        const word = limitedData[i];
+        
+        // Determine which layer this word belongs to
+        const layer = Math.min(Math.floor((i - 1) / wordsPerLayer) + 1, layers);
+        
+        // Position in current layer
+        const layerStartIndex = 1 + (layer - 1) * wordsPerLayer;
+        const positionInLayer = i - layerStartIndex;
+        const totalInLayer = Math.min(wordsPerLayer, limitedData.length - layerStartIndex);
+        
+        // Calculate angle with offset to stagger words
+        const angleOffset = layer % 2 === 0 ? 0 : Math.PI / totalInLayer;
+        const angle = angleOffset + (positionInLayer / totalInLayer) * 2 * Math.PI;
+        
+        // Use the pre-calculated safe radius for this layer
+        const radius = radiusPerLayer[layer];
+        
+        // Calculate position (x,y coordinates as percentages)
+        const x = 50 + radius * Math.cos(angle);
+        const y = 50 + radius * Math.sin(angle);
+        
+        result.push({
+          ...word,
+          x,
+          y,
+          fontSize: getFontSize(word.value, layer),
+          color: getWordColor(word.value),
+          fontWeight: 300 + Math.floor((word.value - minValue) / valueRange * 400),
+          zIndex: 20 - layer,
+          layer
+        });
+      }
+      
+      return result;
+    };
+
+    const layoutWords = wordPositions();
+    
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="relative w-full h-full overflow-hidden">
+          {layoutWords.map((word, idx) => {
+            const tooltipText = `${word.name}: ${word.value} mentions`;
+            
+            return (
+              <div
+                key={idx}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap transition-all duration-300 hover:scale-110 cursor-pointer select-none"
+                style={{
+                  left: `${word.x}%`,
+                  top: `${word.y}%`,
+                  color: word.color,
+                  fontSize: `${word.fontSize}px`,
+                  fontWeight: word.fontWeight,
+                  opacity: 0.85 + (word.layer === 0 ? 0.15 : 0),
+                  textShadow: '0px 1px 3px rgba(0,0,0,0.3)',
+                  zIndex: word.zIndex,
+                  padding: '5px'
+                }}
+                title={tooltipText}
+              >
+                {word.name}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Word cloud skeleton - concentric circles layout
+  const renderWordCloudSkeleton = () => (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="relative w-full h-full">
+        {/* Center large word */}
         <Skeleton 
-          key={i}
-          className="w-14 rounded-t-md bg-[#2A2E3F]" 
-          style={{ 
-            height: `${Math.floor(Math.random() * 150) + 50}px`,
-            opacity: 0.7 + (Math.random() * 0.3) // Subtle opacity variation
-          }}
+          className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2A2E3F]"
+          style={{ width: "180px", height: "45px", opacity: 0.85 }}
         />
-      ))}
+        
+        {/* First ring (inner) */}
+        {Array.from({ length: 6 }).map((_, i) => {
+          const angle = (i / 6) * 2 * Math.PI;
+          const radius = 22; // First ring radius percentage
+          return (
+            <Skeleton 
+              key={`inner-${i}`}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2A2E3F]"
+              style={{ 
+                left: `${50 + radius * Math.cos(angle)}%`,
+                top: `${50 + radius * Math.sin(angle)}%`,
+                width: `${60 + Math.random() * 30}px`,
+                height: "26px",
+                opacity: 0.7
+              }}
+            />
+          );
+        })}
+        
+        {/* Second ring (middle) */}
+        {Array.from({ length: 8 }).map((_, i) => {
+          const angle = (i / 8) * 2 * Math.PI;
+          const radius = 35; // Second ring radius percentage
+          return (
+            <Skeleton 
+              key={`middle-${i}`}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2A2E3F]"
+              style={{ 
+                left: `${50 + radius * Math.cos(angle)}%`,
+                top: `${50 + radius * Math.sin(angle)}%`,
+                width: `${50 + Math.random() * 30}px`,
+                height: "20px",
+                opacity: 0.6
+              }}
+            />
+          );
+        })}
+        
+        {/* Third ring (outer) */}
+        {Array.from({ length: 10 }).map((_, i) => {
+          const angle = (i / 10) * 2 * Math.PI;
+          const radius = 44; // Third ring radius percentage - keep contained
+          return (
+            <Skeleton 
+              key={`outer-${i}`}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2A2E3F]"
+              style={{ 
+                left: `${50 + radius * Math.cos(angle)}%`,
+                top: `${50 + radius * Math.sin(angle)}%`,
+                width: `${35 + Math.random() * 25}px`,
+                height: "18px",
+                opacity: 0.5
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // Bar chart skeleton for threat actor cloud
+  const renderThreatActorSkeleton = () => (
+    <div className="w-full h-full flex flex-col justify-end items-center pb-10">
+      <div className="w-full flex justify-between items-end px-6" style={{ height: '85%' }}>
+        {Array.from({ length: 8 }).map((_, i) => {
+          const height = 15 + Math.random() * 70; // Random height between 15-85%
+          return (
+            <div key={`bar-${i}`} className="flex flex-col items-center" style={{ width: '10%' }}>
+              <Skeleton 
+                className="w-full rounded-t-md bg-[#2A2E3F]" 
+                style={{ height: `${height}%` }}
+              />
+              <Skeleton 
+                className="mt-2 w-full h-3 rounded-sm bg-[#2A2E3F]" 
+              />
+            </div>
+          );
+        })}
+      </div>
+      {/* X-axis */}
+      <Skeleton className="w-[95%] h-0.5 mt-1 bg-[#2A2E3F]" />
+      {/* Y-axis */}
+      <div className="absolute left-8 top-8 bottom-14 w-0.5 bg-[#2A2E3F]"></div>
     </div>
   );
 
@@ -581,68 +814,74 @@ export default function ModuleOverview() {
             {/* Chart Area */}
             <div className="w-full h-[75%] sm:h-[80%] md:h-[85%]">
               {isLoadingAnalytics() ? (
-                renderAnalyticsChartSkeleton()
+                analyticsType === "word-cloud" ? 
+                  renderWordCloudSkeleton() : 
+                  renderThreatActorSkeleton()
               ) : (
-                typeof window !== "undefined" && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={getAnalyticsChartData()}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 90 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#413B58" vertical={true} horizontal={true} />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
-                        tickLine={false}
-                        tick={{ fill: "#E5E5EF", fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        interval={0}
-                        height={80}
-                      />
-                      <YAxis 
-                        axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
-                        tickLine={false}
-                        tick={{ fill: "#756D78", fontSize: 12 }}
-                        domain={[0, 'dataMax']}
-                        allowDecimals={false}
-                        label={{ 
-                          value: analyticsType === "word-cloud" ? "Mentions" : "Messages", 
-                          angle: -90, 
-                          position: "insideLeft",
-                          style: { fill: "#E5E5EF", fontSize: 12 }
-                        }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#1D2032",
-                          borderColor: "#22263C",
-                          borderRadius: "8px",
-                          padding: "10px",
-                        }}
-                        labelStyle={{ color: "#fff", marginBottom: "5px" }}
-                        itemStyle={{ color: "#B435D4" }}
-                        formatter={(value: any) => {
-                          return [
-                            `${value.toLocaleString()} ${analyticsType === "word-cloud" ? "mentions" : "messages"}`,
-                            analyticsType === "word-cloud" ? "Frequency" : "Activity"
-                          ];
-                        }}
-                      />
-                      <Bar 
-                        dataKey="value" 
-                        radius={[4, 4, 0, 0]}
-                        barSize={30}
+                analyticsType === "word-cloud" ? (
+                  renderWordCloud(getAnalyticsChartData())
+                ) : (
+                  typeof window !== "undefined" && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={getAnalyticsChartData()}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 90 }}
                       >
-                        {getAnalyticsChartData().map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={getBarColors(getAnalyticsChartData().length)[index % 10]} 
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#413B58" vertical={true} horizontal={true} />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
+                          tickLine={false}
+                          tick={{ fill: "#E5E5EF", fontSize: 12 }}
+                          angle={-45}
+                          textAnchor="end"
+                          interval={0}
+                          height={80}
+                        />
+                        <YAxis 
+                          axisLine={{ stroke: "rgba(229, 229, 239, 0.15)" }}
+                          tickLine={false}
+                          tick={{ fill: "#756D78", fontSize: 12 }}
+                          domain={[0, 'dataMax']}
+                          allowDecimals={false}
+                          label={{ 
+                            value: "Messages", 
+                            angle: -90, 
+                            position: "insideLeft",
+                            style: { fill: "#E5E5EF", fontSize: 12 }
+                          }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1D2032",
+                            borderColor: "#22263C",
+                            borderRadius: "8px",
+                            padding: "10px",
+                          }}
+                          labelStyle={{ color: "#fff", marginBottom: "5px" }}
+                          itemStyle={{ color: "#B435D4" }}
+                          formatter={(value: any) => {
+                            return [
+                              `${value.toLocaleString()} messages`,
+                              "Activity"
+                            ];
+                          }}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          radius={[4, 4, 0, 0]}
+                          barSize={30}
+                        >
+                          {getAnalyticsChartData().map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={getBarColors(getAnalyticsChartData().length)[index % 10]} 
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )
                 )
               )}
             </div>
