@@ -37,8 +37,6 @@ export function PostDetail({ post }: PostDetailProps) {
   const [loadingPrevious, setLoadingPrevious] = useState<boolean>(false);
   const accessToken = localStorage.getItem("access_token");
 
-  console.log(currentPost);
-
   useEffect(() => {
     setCurrentPost(post);
     setContent(post.content);
