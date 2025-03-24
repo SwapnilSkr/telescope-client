@@ -23,9 +23,9 @@ interface PostDetailProps {
       name?: string;
     };
     has_previous: boolean;
-    is_verified: boolean;
-    description: string;
-    members_count: number;
+    is_verified?: boolean;
+    description?  : string;
+    members_count?: number;
   };
 }
 
@@ -326,7 +326,7 @@ export function PostDetail({ post }: PostDetailProps) {
                       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
                     <span className="text-sm text-purple-400">
-                      {new Intl.NumberFormat('en-US').format(currentPost.members_count)} members
+                      {currentPost.members_count ? new Intl.NumberFormat('en-US').format(currentPost.members_count) : "0 members"}
                     </span>
                   </div>
                 </div>

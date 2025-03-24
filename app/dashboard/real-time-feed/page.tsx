@@ -1207,12 +1207,7 @@ export default function RealTimeFeed() {
                   className="w-[90vw] sm:max-w-[600px] lg:max-w-[50vw] bg-[#191927] text-white border-gray-800 p-0"
                   side="right"
                 >
-                  <PostDetail post={{
-                    ...post,
-                    is_verified: false,
-                    description: "",
-                    members_count: 0
-                  }} />
+                  <PostDetail post={post} />
                 </SheetContent>
               </Sheet>
             ))}
