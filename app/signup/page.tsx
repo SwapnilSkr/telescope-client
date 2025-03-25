@@ -11,6 +11,7 @@ import ClosedEye from "@/public/closed_eye.png";
 import Shield from "@/public/attention_logo.png";
 import Image from "next/image";
 import { Eye } from "lucide-react";
+import TermsAndAgreementModal from "@/components/Terms";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -30,6 +31,8 @@ export default function SignUpPage() {
   const [isResending, setIsResending] = useState(false);
   const [loading, setLoading] = useState(false);
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(null));
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // List of blocked email domains
   const blockedEmailDomains = [
@@ -191,6 +194,12 @@ export default function SignUpPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    
+    if (!acceptedTerms) {
+      setError("Please accept the Terms and Conditions to continue");
+      return;
+    }
+    
     setLoading(true);
 
     // Validate email before submission
@@ -465,6 +474,25 @@ export default function SignUpPage() {
                   )}
                 </button>
               </div>
+              <div className="mt-[25px] flex items-center gap-x-2">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="w-4 h-4 rounded border-white/30 bg-transparent focus:ring-[#A958E3] focus:ring-offset-0"
+                />
+                <label htmlFor="terms" className="text-sm">
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-[#BC69F7] hover:underline"
+                  >
+                    Terms and Conditions
+                  </button>
+                </label>
+              </div>
               {error && (
                 <p className="text-sm text-red-400 mt-[15px]">{error}</p>
               )}
@@ -496,6 +524,16 @@ export default function SignUpPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Terms Modal */}
+      <TermsAndAgreementModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={() => {
+          setAcceptedTerms(true);
+          setShowTermsModal(false);
+        }}
+      />
 
       {/* Email Verification Modal */}
       {showVerificationModal && (
