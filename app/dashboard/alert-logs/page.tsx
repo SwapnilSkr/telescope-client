@@ -31,6 +31,10 @@ interface Alert {
   date_detected: string;
   source: string;
   media_url?: string;
+  matched_keywords: Array<{
+    type: string;
+    value: string;
+  }>;
 }
 
 export default function AlertLogs() {
@@ -356,10 +360,12 @@ export default function AlertLogs() {
             borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
           }}
         >
-          <div className="col-span-5 md:col-span-5">Alert Content</div>
-          <div className="col-span-3 md:col-span-2">Type</div>
-          <div className="col-span-3 md:col-span-2">Notified</div>
-          <div className="col-span-1 md:col-span-2 hidden sm:block">Date</div>
+          <div className="col-span-3 md:col-span-2">Alert Content</div>
+          <div className="col-span-2 md:col-span-2">Keyword</div>
+          <div className="col-span-2 md:col-span-2">Type</div>
+          <div className="col-span-2 md:col-span-2">Alert Type</div>
+          <div className="col-span-2 md:col-span-2">Notified</div>
+          <div className="col-span-2 md:col-span-1 hidden sm:block">Date</div>
           <div className="col-span-1 text-center">Actions</div>
         </div>
 
@@ -373,23 +379,33 @@ export default function AlertLogs() {
                 className="grid grid-cols-12 gap-4 md:gap-6 py-5 px-6 bg-[#14152E] relative"
               >
                 {/* Alert Content Skeleton */}
-                <div className="col-span-5 md:col-span-5">
-                  <Skeleton className="h-7 w-3/4 bg-[#1c1c36]" />
-                </div>
-
-                {/* Type Skeleton */}
-                <div className="col-span-3 md:col-span-2 flex items-center">
-                  <Skeleton className="h-6 w-24 rounded-full bg-[#1c1c36]" />
-                </div>
-
-                {/* Threat Level Skeleton */}
                 <div className="col-span-3 md:col-span-2">
-                  <Skeleton className="h-6 w-20 rounded-full bg-[#1c1c36]" />
+                  <Skeleton className="h-7 w-full bg-[#1c1c36]" />
+                </div>
+
+                {/* Keyword Skeleton */}
+                <div className="col-span-2 md:col-span-2">
+                  <Skeleton className="h-6 w-full rounded-full bg-[#1c1c36]" />
+                </div>
+
+                {/* Keyword Type Skeleton */}
+                <div className="col-span-2 md:col-span-2">
+                  <Skeleton className="h-6 w-full rounded-full bg-[#1c1c36]" />
+                </div>
+
+                {/* Alert Type Skeleton */}
+                <div className="col-span-2 md:col-span-2">
+                  <Skeleton className="h-6 w-full rounded-full bg-[#1c1c36]" />
+                </div>
+
+                {/* Notified Skeleton */}
+                <div className="col-span-2 md:col-span-2">
+                  <Skeleton className="h-6 w-full rounded-full bg-[#1c1c36]" />
                 </div>
 
                 {/* Date Skeleton */}
-                <div className="col-span-1 md:col-span-2 hidden sm:block">
-                  <Skeleton className="h-6 w-16 bg-[#1c1c36]" />
+                <div className="col-span-2 md:col-span-1 hidden sm:block">
+                  <Skeleton className="h-6 w-full bg-[#1c1c36]" />
                 </div>
                 
                 {/* Actions Skeleton */}
@@ -422,25 +438,54 @@ export default function AlertLogs() {
                       }}
                     >
                       {/* Alert Content */}
-                      <div className="col-span-5 md:col-span-5">
-                        <p className="font-medium text-lg truncate">
-                          {alert.text.length > 60
-                            ? `${alert.text.substring(0, 60)}...`
+                      <div className="col-span-3 md:col-span-2">
+                        <p className="font-medium text-sm md:text-base truncate">
+                          {alert.text.length > 40
+                            ? `${alert.text.substring(0, 40)}...`
                             : alert.text}
                         </p>
                       </div>
 
-                      {/* Type */}
-                      <div className="col-span-3 md:col-span-2 flex items-center flex-wrap gap-1">
+                      {/* Keyword */}
+                      <div className="col-span-2 md:col-span-2">
+                        <Badge
+                          className="px-2 sm:px-3 py-1 text-xs whitespace-nowrap overflow-hidden text-ellipsis w-full"
+                          style={{
+                            backgroundColor: "rgba(66, 12, 105, 0.84)",
+                            border: "0.426px solid rgba(255, 255, 255, 0.16)",
+                            borderRadius: "80px",
+                            color: "#A958E3",
+                          }}
+                        >
+                          {alert.matched_keywords?.[0]?.value || "N/A"}
+                        </Badge>
+                      </div>
+
+                      {/* Keyword Type */}
+                      <div className="col-span-2 md:col-span-2">
+                        <Badge
+                          className="px-2 sm:px-3 py-1 text-xs whitespace-nowrap overflow-hidden text-ellipsis w-full"
+                          style={{
+                            backgroundColor: "rgba(66, 12, 105, 0.84)",
+                            border: "0.426px solid rgba(255, 255, 255, 0.16)",
+                            borderRadius: "80px",
+                            color: "#A958E3",
+                          }}
+                        >
+                          {alert.matched_keywords?.[0]?.type || "N/A"}
+                        </Badge>
+                      </div>
+
+                      {/* Alert Type */}
+                      <div className="col-span-2 md:col-span-2 flex items-center flex-wrap gap-1">
                         {alert.alert_types.length > 0 &&
                           alert.alert_types.map((type) => (
                             <Badge
                               key={type}
-                              className="px-2 sm:px-3 py-1 text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+                              className="px-2 sm:px-3 py-1 text-xs whitespace-nowrap overflow-hidden text-ellipsis w-full"
                               style={{
                                 backgroundColor: "rgba(66, 12, 105, 0.84)",
-                                border:
-                                  "0.426px solid rgba(255, 255, 255, 0.16)",
+                                border: "0.426px solid rgba(255, 255, 255, 0.16)",
                                 borderRadius: "80px",
                                 color: "#A958E3",
                               }}
@@ -451,9 +496,9 @@ export default function AlertLogs() {
                       </div>
 
                       {/* Status */}
-                      <div className="col-span-3 md:col-span-2">
+                      <div className="col-span-2 md:col-span-2">
                         <Badge
-                          className={`px-2 sm:px-3 py-1 text-xs ${
+                          className={`px-2 sm:px-3 py-1 text-xs w-full ${
                             alert.is_notified === false
                               ? "bg-blue-800/50 text-blue-400"
                               : "bg-gray-700/50 text-gray-300"
@@ -467,7 +512,7 @@ export default function AlertLogs() {
                       </div>
 
                       {/* Date */}
-                      <div className="col-span-1 md:col-span-2 text-sm text-gray-400 hidden sm:block">
+                      <div className="col-span-2 md:col-span-1 text-sm text-gray-400 hidden sm:block">
                         {format(new Date(alert.date_detected), "MM/dd/yy")}
                       </div>
                       
