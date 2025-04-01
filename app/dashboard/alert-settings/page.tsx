@@ -41,6 +41,10 @@ export default function AlertSettings() {
   const [hasExistingSettings, setHasExistingSettings] = useState(false);
   const [isIntegrationsLoading, setIsIntegrationsLoading] = useState(false);
   const accessToken = localStorage.getItem("access_token");
+  const [keywords, setKeywords] = useState<Array<{type: string, value: string}>>([]);
+  const [newKeywordType, setNewKeywordType] = useState<string>("country");
+  const [newKeywordValue, setNewKeywordValue] = useState<string>("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const alertTypes = [
     { id: "ransomware", label: "Ransomware" },
@@ -82,8 +86,7 @@ export default function AlertSettings() {
 
   // Function to reset form values to defaults
   const resetToDefaults = () => {
-    setSelectedCountry("none");
-    setSelectedThreatActor("none");
+    setKeywords([]);
     setSelectedAlertTypes([]);
     setFrequency("immediate");
     setHasExistingSettings(false);
@@ -103,27 +106,15 @@ export default function AlertSettings() {
         const data = await response.json();
 
         if (data.status === "success" && data.data) {
-          // Get keywords from the API response
-          const { keywords } = data.data;
+          // Keywords are now already in array format
+          setKeywords(data.data.keywords || []);
           
-          // Extract country and threatActor, ensure they are trimmed and default to "none" if empty
-          const country = keywords?.country?.trim() || "none";
-          const threatActor = keywords?.threat_actor?.trim() || "none";
-          
-          setSelectedCountry(country);
-          setSelectedThreatActor(threatActor);
-          
-          // Get alert types - we'll always use alertTypes for consistency
-          // First look for alertTypes in the response
+          // Get alert types
           if (data.data.alertTypes) {
             setSelectedAlertTypes(data.data.alertTypes || []);
-          }
-          // Fallback to alert_types if alertTypes doesn't exist (for backward compatibility)
-          else if (data.data.alert_types) {
+          } else if (data.data.alert_types) {
             setSelectedAlertTypes(data.data.alert_types || []);
-          }
-          else {
-            // No alert types found, set to empty array
+          } else {
             setSelectedAlertTypes([]);
           }
           
@@ -142,7 +133,6 @@ export default function AlertSettings() {
             }
           }
 
-          // We'll add support for other integrations in the future
           setIntegrationTypes(updatedIntegrations);
         } else {
           console.log("No alert settings found, using defaults");
@@ -532,14 +522,28 @@ export default function AlertSettings() {
     }
   };
 
+  // Add this function to handle adding new keywords
+  const handleAddKeyword = () => {
+    if (newKeywordValue && newKeywordValue !== "none") {
+      setKeywords([...keywords, { type: newKeywordType, value: newKeywordValue.trim() }]);
+      setNewKeywordValue("");
+      setHasUnsavedChanges(true);
+    }
+  };
+
+  // Add this function to handle removing keywords
+  const handleRemoveKeyword = (index: number) => {
+    setKeywords(keywords.filter((_, i) => i !== index));
+    setHasUnsavedChanges(true);
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     
-    // Only validate that at least one keyword is selected (not "none")
-    if (selectedCountry === "none" && selectedThreatActor === "none") {
-      toast.error("Please select at least one country or threat actor.");
+    if (keywords.length === 0) {
+      toast.error("Please add at least one keyword.");
       return;
     }
     
@@ -548,20 +552,13 @@ export default function AlertSettings() {
       return;
     }
     
-    // Convert "none" to empty string for API
-    const country = selectedCountry === "none" ? "" : selectedCountry;
-    const threatActor = selectedThreatActor === "none" ? "" : selectedThreatActor;
-    
     setIsSubmitting(true);
     
     try {
       // Prepare the data for API request
       const alertSettingsData = {
-        keywords: {
-          country: country,
-          threat_actor: threatActor,
-        },
-        alertTypes: selectedAlertTypes, // This is now optional
+        keywords: keywords,
+        alertTypes: selectedAlertTypes,
         frequency: frequency,
       };
       
@@ -583,27 +580,18 @@ export default function AlertSettings() {
       const responseData = await response.json();
 
       if (responseData.status === "success") {
-        // Update the flag to indicate user now has settings
         setHasExistingSettings(true);
-
-        // Show success message based on create/update
-        const actionVerb = responseData.message.includes("created")
-          ? "created"
-          : "updated";
-
+        setHasUnsavedChanges(false);
+        const actionVerb = responseData.message.includes("created") ? "created" : "updated";
         toast.success(
-          `Alert Settings ${
-            actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)
-          }`,
+          `Alert Settings ${actionVerb.charAt(0).toUpperCase() + actionVerb.slice(1)}`,
           {
             description: `Your alert settings have been successfully ${actionVerb}.`,
             duration: 3000,
           }
         );
       } else {
-        throw new Error(
-          responseData.message || "Failed to save alert settings"
-        );
+        throw new Error(responseData.message || "Failed to save alert settings");
       }
     } catch (error) {
       console.error("Error saving alert settings:", error);
@@ -658,45 +646,90 @@ export default function AlertSettings() {
           )}
 
           <div>
-            <p className="text-base font-medium mb-2">
-              Country and Threat Actor Selection
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">
-                  Select Country
-                </label>
-                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                  <SelectTrigger className="bg-[#1e1e38] border-none text-white py-6">
-                    <SelectValue placeholder="Select a country" />
+            <p className="text-base font-medium mb-2">Keywords</p>
+            <div className="space-y-4">
+              {/* Display existing keywords */}
+              {keywords.map((keyword, index) => (
+                <div key={index} className="flex items-center gap-2 bg-[#1e1e38] p-3 rounded-lg">
+                  <div className="flex-1">
+                    <span className="text-sm text-gray-400">{keyword.type === "country" ? "Country" : "Threat Actor"}:</span>
+                    <span className="ml-2 text-white">{keyword.value}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full text-gray-400 hover:text-white"
+                    onClick={() => handleRemoveKeyword(index)}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </Button>
+                </div>
+              ))}
+              
+              {/* Add new keyword form */}
+              <div className="flex gap-2">
+                <Select value={newKeywordType} onValueChange={setNewKeywordType}>
+                  <SelectTrigger className="bg-[#1e1e38] border-none text-white py-6 w-[200px]">
+                    <SelectValue placeholder="Select type" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1e1e38] border-[#2a2a40] text-white max-h-80">
-                    <SelectItem value="none">None</SelectItem>
-                    {countries.map((country) => (
-                      <SelectItem key={country} value={country}>
-                        {country}
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="bg-[#1e1e38] border-[#2a2a40] text-white">
+                    <SelectItem value="country">Country</SelectItem>
+                    <SelectItem value="threat_actor">Threat Actor</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">
-                  Select Threat Actor
-                </label>
-                <Select value={selectedThreatActor} onValueChange={setSelectedThreatActor}>
-                  <SelectTrigger className="bg-[#1e1e38] border-none text-white py-6">
-                    <SelectValue placeholder="Select a threat actor" />
+                
+                <Select 
+                  value={newKeywordValue} 
+                  onValueChange={setNewKeywordValue}
+                >
+                  <SelectTrigger className="bg-[#1e1e38] border-none text-white py-6 flex-1">
+                    <SelectValue placeholder={`Select ${newKeywordType === "country" ? "country" : "threat actor"}`} />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1e1e38] border-[#2a2a40] text-white max-h-80">
-                    <SelectItem value="none">None</SelectItem>
-                    {threatActors.map((actor) => (
-                      <SelectItem key={actor} value={actor}>
-                        {actor}
-                      </SelectItem>
-                    ))}
+                    {newKeywordType === "country" ? (
+                      <>
+                        <SelectItem value="none">None</SelectItem>
+                        {countries.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="none">None</SelectItem>
+                        {threatActors.map((actor) => (
+                          <SelectItem key={actor} value={actor}>
+                            {actor}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
+                
+                <Button
+                  type="button"
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4"
+                  onClick={handleAddKeyword}
+                  disabled={!newKeywordValue.trim()}
+                >
+                  Add
+                </Button>
               </div>
             </div>
           </div>
@@ -866,7 +899,7 @@ export default function AlertSettings() {
                   Saving...
                 </div>
               ) : hasExistingSettings ? (
-                "Update Alert Settings"
+                hasUnsavedChanges ? "Save Changes" : "Alert Settings Saved"
               ) : (
                 "Save Alert Settings"
               )}
