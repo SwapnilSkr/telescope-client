@@ -30,7 +30,7 @@ export default function DashboardLayout({
   const profileBtnRef = useRef<HTMLDivElement>(null);
 
   const toggleMobileMenu = () => {
-    setMobileMenuOpen(prevState => !prevState);
+    setMobileMenuOpen((prevState) => !prevState);
   };
 
   useEffect(() => {
@@ -278,7 +278,10 @@ export default function DashboardLayout({
                       <p className="text-white font-medium">{user?.username}</p>
                     </div>
                     <div className="p-2">
-                      <button className="w-full text-left p-3 text-white rounded transition-colors flex items-center group">
+                      <button
+                        onClick={() => router.push("/dashboard/profile")}
+                        className="w-full text-left p-3 text-white rounded transition-colors flex items-center group"
+                      >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5 mr-3 text-white group-hover:text-[#B435D4]"
@@ -297,7 +300,7 @@ export default function DashboardLayout({
                           Profile
                         </span>
                       </button>
-                      <button className="w-full text-left p-3 text-white rounded transition-colors flex items-center group">
+                      {/* <button className="w-full text-left p-3 text-white rounded transition-colors flex items-center group">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5 mr-3 text-white group-hover:text-[#B435D4]"
@@ -321,7 +324,7 @@ export default function DashboardLayout({
                         <span className="group-hover:text-[#B435D4]">
                           Settings
                         </span>
-                      </button>
+                      </button> */}
                       <button
                         className="w-full text-left p-3 text-white rounded transition-colors flex items-center group"
                         onClick={() => {
