@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -23,8 +22,6 @@ import { APISvg } from "@/components/svgs/APISvg";
 import { BASE_URL } from "@/utils/baseUrl";
 
 export default function AlertSettings() {
-  const [selectedCountry, setSelectedCountry] = useState<string>("none");
-  const [selectedThreatActor, setSelectedThreatActor] = useState<string>("none");
   const [countries, setCountries] = useState<string[]>([]);
   const [threatActors, setThreatActors] = useState<string[]>([]);
   const [frequency, setFrequency] = useState("");
@@ -39,12 +36,15 @@ export default function AlertSettings() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasExistingSettings, setHasExistingSettings] = useState(false);
-  const [isIntegrationsLoading, setIsIntegrationsLoading] = useState(false);
   const accessToken = localStorage.getItem("access_token");
   const [keywords, setKeywords] = useState<Array<{type: string, value: string}>>([]);
   const [newKeywordType, setNewKeywordType] = useState<string>("country");
   const [newKeywordValue, setNewKeywordValue] = useState<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const alertTypes = [
     { id: "ransomware", label: "Ransomware" },
@@ -80,7 +80,7 @@ export default function AlertSettings() {
       label: "API",
       connected: false,
       svg: <APISvg />,
-      available: false,
+      available: true,
     },
   ]);
 
@@ -130,6 +130,16 @@ export default function AlertSettings() {
             );
             if (slackIndex !== -1) {
               updatedIntegrations[slackIndex].connected = true;
+            }
+          }
+
+          if (data.data.api_secrets) {
+            const apiIndex = updatedIntegrations.findIndex(
+              (integration) => integration.id === "api"
+            );
+            if (apiIndex !== -1) {
+              updatedIntegrations[apiIndex].connected = true;
+              setApiKey(data.data.api_secrets.api_key || "");
             }
           }
 
@@ -260,20 +270,17 @@ export default function AlertSettings() {
 
       const data = await response.json();
 
-      // If it's Slack and we have credentials, populate the form
-      if (
-        integrationId === "slack" &&
-        data.status === "success" &&
-        data.data?.slack_secrets
-      ) {
+      if (integrationId === "slack" && data.status === "success" && data.data?.slack_secrets) {
         setBotToken(data.data.slack_secrets.bot_token || "");
         setChannelName(data.data.slack_secrets.channel_name || "");
+      } else if (integrationId === "api" && data.status === "success" && data.data?.api_secrets) {
+        setApiKey(data.data.api_secrets.api_key || "");
+        setShowApiKey(false);
       }
     } catch (error) {
       console.error("Error fetching integration credentials:", error);
       toast.error("Error", {
-        description:
-          "Failed to fetch integration credentials. Please try again.",
+        description: "Failed to fetch integration credentials. Please try again.",
         duration: 3000,
       });
     }
@@ -285,57 +292,99 @@ export default function AlertSettings() {
     setCurrentIntegration(null);
     setBotToken("");
     setChannelName("");
+    setApiKey("");
+    setShowApiKey(false);
+    setIsCopied(false);
     setIsIntegrationSubmitting(false);
   };
 
+  const handleGenerateApiKey = async () => {
+    setIsGeneratingKey(true);
+    try {
+      const response = await fetch(`${BASE_URL}/alerts/generate-api-key`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to generate API key");
+      }
+
+      const data = await response.json();
+      setApiKey(data.data.api_key);
+      toast.success("API Key Generated", {
+        description: "Your new API key has been generated successfully.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error generating API key:", error);
+      toast.error("Error", {
+        description: "Failed to generate API key. Please try again.",
+        duration: 3000,
+      });
+    } finally {
+      setIsGeneratingKey(false);
+    }
+  };
+
   const handleSaveIntegration = async () => {
-    if (!botToken.trim()) {
-      toast.error("Validation Error", {
-        description: "Bot Token is required.",
-        duration: 3000,
-      });
-      return;
-    }
+    if (currentIntegration.id === "slack") {
+      if (!botToken.trim()) {
+        toast.error("Validation Error", {
+          description: "Bot Token is required.",
+          duration: 3000,
+        });
+        return;
+      }
 
-    if (!channelName.trim()) {
-      toast.error("Validation Error", {
-        description: "Channel Name is required.",
-        duration: 3000,
-      });
-      return;
-    }
+      if (!channelName.trim()) {
+        toast.error("Validation Error", {
+          description: "Channel Name is required.",
+          duration: 3000,
+        });
+        return;
+      }
 
-    // Basic validation for bot token format
-    if (!botToken.trim().startsWith("xoxb-")) {
-      toast.error("Validation Error", {
-        description:
-          "Invalid Bot Token format. Slack Bot Tokens should start with 'xoxb-'",
-        duration: 4000,
-      });
-      return;
+      if (!botToken.trim().startsWith("xoxb-")) {
+        toast.error("Validation Error", {
+          description:
+            "Invalid Bot Token format. Slack Bot Tokens should start with 'xoxb-'",
+          duration: 4000,
+        });
+        return;
+      }
+    } else if (currentIntegration.id === "api") {
+      if (!apiKey.trim()) {
+        toast.error("Validation Error", {
+          description: "Please generate an API key first.",
+          duration: 3000,
+        });
+        return;
+      }
     }
 
     setIsIntegrationSubmitting(true);
 
     try {
-      // Prepare integration data
       const integrationData = {
         integration: currentIntegration.id,
-        slack_secrets: {
-          bot_token: botToken.trim(),
-          channel_name: channelName.trim(), // No need to add # on the frontend
-        },
+        ...(currentIntegration.id === "slack" && {
+          slack_secrets: {
+            bot_token: botToken.trim(),
+            channel_name: channelName.trim(),
+          },
+        }),
+        ...(currentIntegration.id === "api" && {
+          api_secrets: {
+            api_key: apiKey.trim(),
+          },
+        }),
       };
 
-      // Add the appropriate secrets based on integration type
-      if (currentIntegration.id === "slack") {
-        integrationData.slack_secrets = {
-          bot_token: botToken.trim(),
-          channel_name: channelName.trim(), // No need to add # on the frontend
-        };
-      }
-
-      // Send data to the API
       const response = await fetch(`${BASE_URL}/alerts/integrations`, {
         method: "POST",
         headers: {
@@ -347,12 +396,9 @@ export default function AlertSettings() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.detail || "Failed to save integration settings"
-        );
+        throw new Error(errorData.detail || "Failed to save integration settings");
       }
 
-      // Update local state on success
       setIntegrationTypes((prevIntegrations) =>
         prevIntegrations.map((integration) =>
           integration.id === currentIntegration.id
@@ -374,7 +420,7 @@ export default function AlertSettings() {
           ? error.message
           : "Failed to save integration. Please try again.";
 
-      toast.error("Slack Connection Error", {
+      toast.error(`${currentIntegration.label} Connection Error`, {
         description: errorMessage,
         duration: 5000,
       });
@@ -384,53 +430,59 @@ export default function AlertSettings() {
   };
 
   const handleUpdateIntegration = async () => {
-    if (!botToken.trim()) {
-      toast.error("Validation Error", {
-        description: "Bot Token is required.",
-        duration: 3000,
-      });
-      return;
-    }
+    if (currentIntegration.id === "slack") {
+      if (!botToken.trim()) {
+        toast.error("Validation Error", {
+          description: "Bot Token is required.",
+          duration: 3000,
+        });
+        return;
+      }
 
-    if (!channelName.trim()) {
-      toast.error("Validation Error", {
-        description: "Channel Name is required.",
-        duration: 3000,
-      });
-      return;
-    }
+      if (!channelName.trim()) {
+        toast.error("Validation Error", {
+          description: "Channel Name is required.",
+          duration: 3000,
+        });
+        return;
+      }
 
-    // Basic validation for bot token format
-    if (!botToken.trim().startsWith("xoxb-")) {
-      toast.error("Validation Error", {
-        description:
-          "Invalid Bot Token format. Slack Bot Tokens should start with 'xoxb-'",
-        duration: 4000,
-      });
-      return;
+      if (!botToken.trim().startsWith("xoxb-")) {
+        toast.error("Validation Error", {
+          description:
+            "Invalid Bot Token format. Slack Bot Tokens should start with 'xoxb-'",
+          duration: 4000,
+        });
+        return;
+      }
+    } else if (currentIntegration.id === "api") {
+      if (!apiKey.trim()) {
+        toast.error("Validation Error", {
+          description: "API Key is required. Please regenerate if needed.",
+          duration: 3000,
+        });
+        return;
+      }
     }
 
     setIsIntegrationSubmitting(true);
 
     try {
-      // Prepare integration data
       const integrationData = {
         integration: currentIntegration.id,
-        slack_secrets: {
-          bot_token: botToken.trim(),
-          channel_name: channelName.trim(), // No need to add # on the frontend
-        },
+        ...(currentIntegration.id === "slack" && {
+          slack_secrets: {
+            bot_token: botToken.trim(),
+            channel_name: channelName.trim(),
+          },
+        }),
+        ...(currentIntegration.id === "api" && {
+          api_secrets: {
+            api_key: apiKey.trim(),
+          },
+        }),
       };
 
-      // Add the appropriate secrets based on integration type
-      if (currentIntegration.id === "slack") {
-        integrationData.slack_secrets = {
-          bot_token: botToken.trim(),
-          channel_name: channelName.trim(), // No need to add # on the frontend
-        };
-      }
-
-      // Send data to the API
       const response = await fetch(`${BASE_URL}/alerts/integrations`, {
         method: "POST",
         headers: {
@@ -442,13 +494,11 @@ export default function AlertSettings() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.detail || "Failed to update integration settings"
-        );
+        throw new Error(errorData.detail || "Failed to update integration settings");
       }
 
       toast.success(`${currentIntegration.label} Updated`, {
-        description: `${currentIntegration.label} credentials have been updated.`,
+        description: `${currentIntegration.label} integration has been updated successfully.`,
         duration: 3000,
       });
 
@@ -460,7 +510,7 @@ export default function AlertSettings() {
           ? error.message
           : "Failed to update integration. Please try again.";
 
-      toast.error("Slack Connection Error", {
+      toast.error(`${currentIntegration.label} Update Error`, {
         description: errorMessage,
         duration: 5000,
       });
@@ -473,7 +523,6 @@ export default function AlertSettings() {
     setIsIntegrationSubmitting(true);
 
     try {
-      // Send request to disconnect the integration
       const response = await fetch(
         `${BASE_URL}/alerts/integrations/disconnect`,
         {
@@ -491,7 +540,6 @@ export default function AlertSettings() {
         throw new Error(errorData.detail || "Failed to disconnect integration");
       }
 
-      // Update local state
       setIntegrationTypes((prevIntegrations) =>
         prevIntegrations.map((integration) =>
           integration.id === currentIntegration.id
@@ -612,6 +660,16 @@ export default function AlertSettings() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCopyApiKey = () => {
+    navigator.clipboard.writeText(apiKey);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+    toast.success("API Key Copied", {
+      description: "The API key has been copied to your clipboard.",
+      duration: 2000,
+    });
   };
 
   if (isLoading) {
@@ -942,30 +1000,87 @@ export default function AlertSettings() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm mb-2">Add Channel Name</label>
-                <input
-                  type="text"
-                  placeholder="alerts"
-                  className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white"
-                  value={channelName}
-                  onChange={(e) => setChannelName(e.target.value)}
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  Enter the channel name without the # prefix (e.g.,
-                  &quot;general&quot;, &quot;alerts&quot;)
-                </p>
-              </div>
+              {currentIntegration?.id === "slack" ? (
+                <>
+                  <div>
+                    <label className="block text-sm mb-2">Channel Name</label>
+                    <input
+                      type="text"
+                      placeholder="alerts"
+                      className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white"
+                      value={channelName}
+                      onChange={(e) => setChannelName(e.target.value)}
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm mb-2">Add Bot Token</label>
-                <textarea
-                  placeholder="Type Bot Token here"
-                  className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white h-32 resize-none"
-                  value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)}
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm mb-2">Update Bot Token</label>
+                    <textarea
+                      placeholder="Type Bot Token here"
+                      className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white h-32 resize-none"
+                      value={botToken}
+                      onChange={(e) => setBotToken(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : currentIntegration?.id === "api" ? (
+                <div>
+                  <label className="block text-sm mb-2">API Key</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="Your API key will appear here"
+                      className="flex-1 bg-[#1e1e38] border-none rounded-lg p-3 text-white"
+                      value={apiKey}
+                      readOnly
+                    />
+                    <Button
+                      type="button"
+                      className="bg-[#1e1e38] hover:bg-[#2a2a40] text-white"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                      {showApiKey ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                          <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-[#1e1e38] hover:bg-[#2a2a40] text-white"
+                      onClick={handleCopyApiKey}
+                    >
+                      {isCopied ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    className="bg-purple-600 hover:bg-purple-700 text-white mt-4"
+                    onClick={handleGenerateApiKey}
+                    disabled={isGeneratingKey}
+                  >
+                    {isGeneratingKey ? "Regenerating..." : "Regenerate API Key"}
+                  </Button>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Regenerating will create a new API key and invalidate the old one.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="flex justify-end mt-6">
                 <Button
@@ -1042,26 +1157,87 @@ export default function AlertSettings() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm mb-2">Channel Name</label>
-                <input
-                  type="text"
-                  placeholder="alerts"
-                  className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white"
-                  value={channelName}
-                  onChange={(e) => setChannelName(e.target.value)}
-                />
-              </div>
+              {currentIntegration?.id === "slack" ? (
+                <>
+                  <div>
+                    <label className="block text-sm mb-2">Channel Name</label>
+                    <input
+                      type="text"
+                      placeholder="alerts"
+                      className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white"
+                      value={channelName}
+                      onChange={(e) => setChannelName(e.target.value)}
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm mb-2">Update Bot Token</label>
-                <textarea
-                  placeholder="Type Bot Token here"
-                  className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white h-32 resize-none"
-                  value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)}
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm mb-2">Update Bot Token</label>
+                    <textarea
+                      placeholder="Type Bot Token here"
+                      className="w-full bg-[#1e1e38] border-none rounded-lg p-3 text-white h-32 resize-none"
+                      value={botToken}
+                      onChange={(e) => setBotToken(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : currentIntegration?.id === "api" ? (
+                <div>
+                  <label className="block text-sm mb-2">API Key</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="Your API key will appear here"
+                      className="flex-1 bg-[#1e1e38] border-none rounded-lg p-3 text-white"
+                      value={apiKey}
+                      readOnly
+                    />
+                    <Button
+                      type="button"
+                      className="bg-[#1e1e38] hover:bg-[#2a2a40] text-white"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                    >
+                      {showApiKey ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                          <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      className="bg-[#1e1e38] hover:bg-[#2a2a40] text-white"
+                      onClick={handleCopyApiKey}
+                    >
+                      {isCopied ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    className="bg-purple-600 hover:bg-purple-700 text-white mt-4"
+                    onClick={handleGenerateApiKey}
+                    disabled={isGeneratingKey}
+                  >
+                    {isGeneratingKey ? "Regenerating..." : "Regenerate API Key"}
+                  </Button>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Regenerating will create a new API key and invalidate the old one.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="flex justify-between mt-6">
                 <Button
