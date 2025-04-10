@@ -12,7 +12,7 @@ import { FiUser, FiUserCheck } from "react-icons/fi";
 import { FiShield, FiShieldOff } from "react-icons/fi";
 import useUserStore from "@/stores/userStore";
 import Image from "next/image";
-
+import { useRouter } from "next/navigation";
 const LogOutIcon = ({
   fill,
   className,
@@ -88,7 +88,7 @@ const menuItems = [
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { clearUser } = useUserStore();
-
+  const router = useRouter();
   return (
     <div
       className={`flex flex-col w-[200px] xl:w-[300px] text-white bg-[#111427] ${className} p-[30px]`}
@@ -193,7 +193,10 @@ export function Sidebar({ className }: { className?: string }) {
       </nav>
       <div className="">
         <button
-          onClick={() => clearUser()}
+          onClick={() => {
+            clearUser();
+            router.push("/");
+          }}
           className="flex items-center w-full p-2 rounded-lg hover:text-[#A958E3] group"
         >
           <div className="mr-2">

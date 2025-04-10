@@ -12,6 +12,7 @@ import Shield from "@/public/attention_logo.png";
 import Image from "next/image";
 import { Eye } from "lucide-react";
 import TermsAndAgreementModal from "@/components/Terms";
+import disposableDomains from "disposable-email-domains";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -19,6 +20,8 @@ export default function SignUpPage() {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [bgLoaded, setBgLoaded] = useState(false);
   const { user, fetchUser } = useUserStore();
@@ -70,6 +73,82 @@ export default function SignUpPage() {
     "burpcollaborator.net",
   ];
 
+  // Validate username
+  const validateUsername = (username: string): boolean => {
+    if (!username.trim()) {
+      setUsernameError("Username is required");
+      return false;
+    }
+    
+    if (username.length < 3) {
+      setUsernameError("Username must be at least 3 characters long");
+      return false;
+    }
+    
+    if (username.length > 20) {
+      setUsernameError("Username cannot exceed 20 characters");
+      return false;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setUsernameError("Username can only contain letters, numbers, and underscores");
+      return false;
+    }
+    
+    setUsernameError(null);
+    return true;
+  };
+
+  // Validate password
+  const validatePassword = (password: string): boolean => {
+    if (!password) {
+      setPasswordError("Password is required");
+      return false;
+    }
+    
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters long");
+      return false;
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+      setPasswordError("Password must contain at least one uppercase letter");
+      return false;
+    }
+    
+    if (!/[a-z]/.test(password)) {
+      setPasswordError("Password must contain at least one lowercase letter");
+      return false;
+    }
+    
+    if (!/[0-9]/.test(password)) {
+      setPasswordError("Password must contain at least one number");
+      return false;
+    }
+    
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setPasswordError("Password must contain at least one special character");
+      return false;
+    }
+    
+    setPasswordError(null);
+    return true;
+  };
+
+  // Handle username change
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUsername = e.target.value;
+    setUsername(newUsername);
+    if (newUsername) validateUsername(newUsername);
+  };
+
+  // Handle password change
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    if (newPassword) validatePassword(newPassword);
+  };
+
   // Email validation function
   const validateEmail = (email: string): boolean => {
     if (!email) return false;
@@ -81,11 +160,21 @@ export default function SignUpPage() {
       return false;
     }
 
-    // Check if domain is in blocked list
+    // Extract domain from email
     const domain = email.split("@")[1].toLowerCase();
+    
+    // Check if domain is in blocked list
     if (blockedEmailDomains.includes(domain)) {
       setEmailError(
         "Please use a work email. Personal and temporary emails are not allowed."
+      );
+      return false;
+    }
+    
+    // Check if domain is in disposable email domains list from package
+    if (disposableDomains.includes(domain)) {
+      setEmailError(
+        "Please use a work email. Disposable email addresses are not allowed."
       );
       return false;
     }
@@ -195,18 +284,21 @@ export default function SignUpPage() {
     event.preventDefault();
     setError(null);
     
+    // Validate all fields before submission
+    const isEmailValid = validateEmail(email);
+    const isUsernameValid = validateUsername(username);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isUsernameValid || !isPasswordValid) {
+      return;
+    }
+    
     if (!acceptedTerms) {
       setError("Please accept the Terms and Conditions to continue");
       return;
     }
     
     setLoading(true);
-
-    // Validate email before submission
-    if (!validateEmail(email)) {
-      setLoading(false);
-      return;
-    }
 
     try {
       const response = await fetch(`${BASE_URL}/register_account`, {
@@ -339,7 +431,7 @@ export default function SignUpPage() {
         </div>
       )}
       
-      <div className={`p-[100px] flex items-center justify-between w-full h-full ${bgLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+      <div className={`px-[100px] py-[40px] flex items-center justify-between w-full h-full ${bgLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
         <div className="login-title lg:block hidden text-white w-[50%] h-full py-[50px]">
           <Image
             src={TelescopeLogo}
@@ -397,31 +489,49 @@ export default function SignUpPage() {
                 Enter your details to create your account
               </p>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} autoComplete="new-password" spellCheck="false">
+              {/* Hidden fields to trick browser autofill */}
+              <div style={{ display: 'none' }}>
+                <input type="text" name="fakeusernameremembered" />
+                <input type="email" name="fakeemailremembered" />
+                <input type="password" name="fakepasswordremembered" />
+              </div>
+              
               <div className="mb-[25px]">
                 <input
                   id="username"
+                  name="username_prevent_autofill"
                   placeholder="Username"
                   type="text"
                   autoCapitalize="none"
-                  autoComplete="username"
+                  autoComplete="new-password"
                   autoCorrect="off"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  onChange={handleUsernameChange}
+                  className={`px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full ${
+                    usernameError
+                      ? "border-red-400"
+                      : "border-[rgba(255,255,255,0.30)]"
+                  }`}
                   style={{
-                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    border: usernameError
+                      ? "1px solid rgba(255, 100, 100, 0.5)"
+                      : "1px solid rgba(255, 255, 255, 0.30)",
                     borderRadius: "12px",
                   }}
                 />
+                {usernameError && (
+                  <p className="text-sm text-red-400 mt-[5px]">{usernameError}</p>
+                )}
               </div>
               <div className="mb-[25px]">
                 <input
                   id="email"
+                  name="email_prevent_autofill"
                   placeholder="Work email address"
                   type="email"
                   autoCapitalize="none"
-                  autoComplete="email"
+                  autoComplete="new-password"
                   autoCorrect="off"
                   value={email}
                   onChange={handleEmailChange}
@@ -444,15 +554,23 @@ export default function SignUpPage() {
               <div className="relative">
                 <input
                   id="password"
+                  name="pass_prevent_autofill"
                   placeholder="Password"
                   type={showPassword ? "text" : "password"}
                   autoCapitalize="none"
+                  autoComplete="new-password"
                   autoCorrect="off"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  onChange={handlePasswordChange}
+                  className={`px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full ${
+                    passwordError
+                      ? "border-red-400"
+                      : "border-[rgba(255,255,255,0.30)]"
+                  }`}
                   style={{
-                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    border: passwordError
+                      ? "1px solid rgba(255, 100, 100, 0.5)"
+                      : "1px solid rgba(255, 255, 255, 0.30)",
                     borderRadius: "12px",
                   }}
                 />
@@ -473,6 +591,19 @@ export default function SignUpPage() {
                     />
                   )}
                 </button>
+                {passwordError && (
+                  <p className="text-sm text-red-400 mt-[5px]">{passwordError}</p>
+                )}
+                <div className="text-xs text-white/60 mt-2 space-y-1">
+                  <p>Password requirements:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    <li className={password.length >= 8 ? "text-green-400" : ""}>At least 8 characters</li>
+                    <li className={/[A-Z]/.test(password) ? "text-green-400" : ""}>At least one uppercase letter</li>
+                    <li className={/[a-z]/.test(password) ? "text-green-400" : ""}>At least one lowercase letter</li>
+                    <li className={/[0-9]/.test(password) ? "text-green-400" : ""}>At least one number</li>
+                    <li className={/[^A-Za-z0-9]/.test(password) ? "text-green-400" : ""}>At least one special character</li>
+                  </ul>
+                </div>
               </div>
               <div className="mt-[25px] flex items-center gap-x-2">
                 <input
@@ -547,6 +678,15 @@ export default function SignUpPage() {
               backdropFilter: "blur(10px)",
             }}
           >
+            <button
+              onClick={() => setShowVerificationModal(false)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white"
+              aria-label="Close"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
             <h2 className="text-2xl font-semibold mb-4 text-center">Verify Your Email</h2>
             <p className="text-center mb-6">
               We&apos;ve sent a 6-digit verification code to <span className="text-[#BC69F7] font-medium">{email}</span>. 
@@ -563,6 +703,8 @@ export default function SignUpPage() {
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
+                  autoComplete="new-password"
+                  name={`code_${index}_prevent_autofill`}
                   value={digit}
                   onChange={(e) => handleVerificationCodeChange(index, e.target.value)}
                   onKeyDown={(e) => handleVerificationKeyDown(index, e)}

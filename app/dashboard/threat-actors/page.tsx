@@ -84,8 +84,66 @@ export default function ThreatActorLibrary() {
     fetchCategories();
   }, []);
 
-  // Fetch groups from the API
+  // Watch for URL parameter changes and update state
+  useEffect(() => {
+    // Check if we need to update URL based on state
+    const currentKeyword = searchParams.get("keyword") || "";
+    const currentCategory = searchParams.get("category") || "All";
+    const currentStatus = searchParams.get("status") || "All";
+    const currentPageParam = parseInt(searchParams.get("page") || "1", 10);
+    
+    // Update state if URL params changed (without triggering a fetch)
+    if (searchKeyword !== currentKeyword) {
+      setSearchKeyword(currentKeyword);
+      setSearchInput(currentKeyword); // Also update input field
+    }
+    if (selectedType !== currentCategory) {
+      setSelectedType(currentCategory);
+    }
+    if (selectedStatus !== currentStatus) {
+      setSelectedStatus(currentStatus);
+    }
+    if (currentPage !== currentPageParam) {
+      setCurrentPage(currentPageParam);
+    }
+    
+    // Only fetch data once after all state has been updated
+    const timer = setTimeout(() => {
+      fetchGroups();
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [searchParams]);
+
+  // Update URL when state changes (but don't fetch data here)
+  useEffect(() => {
+    // Set loading to prevent additional fetches during URL update
+    setLoading(true);
+    
+    const params = new URLSearchParams();
+    if (searchKeyword) params.set("keyword", searchKeyword);
+    if (selectedType !== "All") params.set("category", selectedType);
+    if (selectedStatus !== "All") params.set("status", selectedStatus);
+    params.set("page", currentPage.toString());
+    
+    // Check if URL needs updating
+    const currentUrl = `?${params.toString()}`;
+    const browserUrl = searchParams.toString() ? `?${searchParams.toString()}` : "";
+    
+    // Only update URL if it's different from current browser URL
+    if (currentUrl !== browserUrl) {
+      // Use replace to avoid adding to history stack
+      router.replace(currentUrl, { scroll: false });
+    } else {
+      // If URL didn't change, we still need to reset loading
+      setLoading(false);
+    }
+  }, [searchKeyword, selectedType, selectedStatus, currentPage, router, searchParams]);
+
+  // The fetchGroups function (outside any useEffect)
   const fetchGroups = useCallback(async () => {
+    if (loading) return; // Prevent calling when already loading
+    
     setLoading(true);
     try {
       // Always use state variables directly to build the query
@@ -118,59 +176,6 @@ export default function ThreatActorLibrary() {
     }
   }, [searchKeyword, selectedType, selectedStatus, currentPage, accessToken]);
 
-  // Update query params in URL
-  const updateQueryParams = useCallback(() => {
-    // Set loading to prevent additional fetches during URL update
-    setLoading(true);
-    
-    const params = new URLSearchParams();
-    if (searchKeyword) params.set("keyword", searchKeyword);
-    if (selectedType !== "All") params.set("category", selectedType);
-    if (selectedStatus !== "All") params.set("status", selectedStatus);
-    params.set("page", currentPage.toString());
-    
-    // Use replace to avoid adding to history stack
-    router.replace(`?${params.toString()}`, { scroll: false });
-    
-    // No need to call fetchGroups here - the useEffect watching searchParams will handle it
-  }, [searchKeyword, selectedType, selectedStatus, currentPage, router]);
-
-  // Watch for URL parameter changes and update state
-  useEffect(() => {
-    // Check if we need to update URL based on state
-    const currentKeyword = searchParams.get("keyword") || "";
-    const currentCategory = searchParams.get("category") || "All";
-    const currentStatus = searchParams.get("status") || "All";
-    const currentPageParam = parseInt(searchParams.get("page") || "1", 10);
-    
-    const needsUrlUpdate = 
-      searchKeyword !== currentKeyword ||
-      selectedType !== currentCategory ||
-      selectedStatus !== currentStatus ||
-      currentPage !== currentPageParam;
-      
-    if (needsUrlUpdate) {
-      // Update URL without refetching since the state is already correct
-      updateQueryParams();
-    } else {
-      // URL is in sync with state, so fetch data
-      fetchGroups();
-    }
-  }, [searchKeyword, selectedType, selectedStatus, currentPage, searchParams, updateQueryParams, fetchGroups]);
-
-  // The existing useEffect can remain for updating the URL when state changes
-  useEffect(() => {
-    fetchGroups();
-    updateQueryParams();
-  }, [
-    fetchGroups,
-    router,
-    searchKeyword,
-    selectedType,
-    selectedStatus,
-    currentPage,
-  ]);
-
   const handleTypeChange = (value: string) => {
     if (loading) return; // Prevent actions during loading
     setSelectedType(value);
@@ -197,8 +202,6 @@ export default function ThreatActorLibrary() {
     
     // Reset to page 1 when changing search
     setCurrentPage(1);
-    
-    // The useEffect will handle URL updates and data fetching
   };
 
   return (
@@ -270,42 +273,6 @@ export default function ThreatActorLibrary() {
             </SelectContent>
           </Select>
         </div>
-
-        {/* Add Groups Button */}
-        <Button
-          onClick={() => setIsAddMultipleGroupsModalOpen(true)}
-          className="bg-[#191927] border-none flex items-center gap-2 h-10 mt-auto md:mt-0 w-full md:w-auto"
-          style={{
-            borderRadius: "40px",
-            background: "rgba(160, 83, 216, 0.30)",
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="29"
-            height="29"
-            viewBox="0 0 29 29"
-            fill="none"
-          >
-            <path
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-              d="M2.41797 14.5013C2.41797 7.82768 7.82768 2.41797 14.5013 2.41797C21.1749 2.41797 26.5846 7.82768 26.5846 14.5013C26.5846 21.1749 21.1749 26.5846 14.5013 26.5846C7.82768 26.5846 2.41797 21.1749 2.41797 14.5013ZM14.5013 4.83464C11.9375 4.83464 9.47879 5.85308 7.66594 7.66594C5.85308 9.47879 4.83464 11.9375 4.83464 14.5013C4.83464 17.0651 5.85308 19.5238 7.66594 21.3367C9.47879 23.1495 11.9375 24.168 14.5013 24.168C17.0651 24.168 19.5238 23.1495 21.3367 21.3367C23.1495 19.5238 24.168 17.0651 24.168 14.5013C24.168 11.9375 23.1495 9.47879 21.3367 7.66594C19.5238 5.85308 17.0651 4.83464 14.5013 4.83464Z"
-              fill="white"
-              stroke="#311951"
-              stroke-width="1.20833"
-            />
-            <path
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-              d="M15.7103 8.46029C15.7103 8.13982 15.583 7.83247 15.3564 7.60587C15.1298 7.37926 14.8224 7.25195 14.502 7.25195C14.1815 7.25195 13.8741 7.37926 13.6475 7.60587C13.4209 7.83247 13.2936 8.13982 13.2936 8.46029V13.2936H8.46029C8.13982 13.2936 7.83247 13.4209 7.60587 13.6475C7.37926 13.8741 7.25195 14.1815 7.25195 14.502C7.25195 14.8224 7.37926 15.1298 7.60587 15.3564C7.83247 15.583 8.13982 15.7103 8.46029 15.7103H13.2936V20.5436C13.2936 20.8641 13.4209 21.1714 13.6475 21.398C13.8741 21.6246 14.1815 21.752 14.502 21.752C14.8224 21.752 15.1298 21.6246 15.3564 21.398C15.583 21.1714 15.7103 20.8641 15.7103 20.5436V15.7103H20.5436C20.8641 15.7103 21.1714 15.583 21.398 15.3564C21.6246 15.1298 21.752 14.8224 21.752 14.502C21.752 14.1815 21.6246 13.8741 21.398 13.6475C21.1714 13.4209 20.8641 13.2936 20.5436 13.2936H15.7103V8.46029Z"
-              fill="white"
-              stroke="#311951"
-              stroke-width="1.20833"
-            />
-          </svg>{" "}
-          Add Groups
-        </Button>
       </div>
 
       {/* Table Header and Content */}

@@ -14,6 +14,7 @@ import AlertFill from "@/public/alertfill.png";
 import Threat from "@/public/Threat.png";
 import ThreatFill from "@/public/threatfill.png";
 import useUserStore from "@/stores/userStore";
+import { useRouter } from "next/navigation";
 
 const LogOutIcon = ({ fill, className }: { fill: boolean, className: string }) => {
   return (
@@ -42,6 +43,7 @@ export const MobileMenu = forwardRef<
   { open: boolean; setOpen: (open: boolean) => void }
 >(({ open, setOpen }, ref) => {
   const pathname = usePathname();
+  const router = useRouter();
   const { clearUser } = useUserStore();
   const [isClosing, setIsClosing] = useState(false);
   
@@ -70,6 +72,7 @@ export const MobileMenu = forwardRef<
       clearUser();
       setOpen(false);
       document.body.style.overflow = '';
+      router.push("/");
     }, 300); // Match animation duration
   };
   

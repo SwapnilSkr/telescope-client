@@ -25,6 +25,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [bgLoaded, setBgLoaded] = useState(false);
@@ -207,9 +209,61 @@ export default function LoginPage() {
     }
   };
 
+  // Email validation function
+  const validateEmail = (email: string): boolean => {
+    if (!email) {
+      setEmailError("Email is required");
+      return false;
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError("Please enter a valid email address");
+      return false;
+    }
+
+    setEmailError(null);
+    return true;
+  };
+
+  // Password validation function
+  const validatePassword = (password: string): boolean => {
+    if (!password) {
+      setPasswordError("Password is required");
+      return false;
+    }
+
+    setPasswordError(null);
+    return true;
+  };
+
+  // Handle email change
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    if (newEmail) validateEmail(newEmail);
+  };
+
+  // Handle password change
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    if (newPassword) validatePassword(newPassword);
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+
+    // Validate inputs before submission
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isPasswordValid) {
+      return;
+    }
+    
     setIsLoggingIn(true);
 
     try {
@@ -338,36 +392,60 @@ export default function LoginPage() {
                 Enter your email to sign in to your account
               </p>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} autoComplete="new-password" spellCheck="false">
+              {/* Hidden fields to trick browser autofill */}
+              <div style={{ display: 'none' }}>
+                <input type="text" name="fakeusernameremembered" />
+                <input type="password" name="fakepasswordremembered" />
+              </div>
+              
               <div className="mb-[25px]">
                 <input
                   id="email"
+                  name="email_prevent_autofill"
                   placeholder="Email address"
                   type="email"
                   autoCapitalize="none"
-                  autoComplete="email"
+                  autoComplete="new-password"
                   autoCorrect="off"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  onChange={handleEmailChange}
+                  className={`px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full ${
+                    emailError
+                      ? "border-red-400"
+                      : "border-[rgba(255,255,255,0.30)]"
+                  }`}
                   style={{
-                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    border: emailError
+                      ? "1px solid rgba(255, 100, 100, 0.5)"
+                      : "1px solid rgba(255, 255, 255, 0.30)",
                     borderRadius: "12px",
                   }}
                 />
+                {emailError && (
+                  <p className="text-sm text-red-400 mt-[5px]">{emailError}</p>
+                )}
               </div>
               <div className="relative">
                 <input
                   id="password"
+                  name="pass_prevent_autofill"
                   placeholder="Password"
                   type={showPassword ? "text" : "password"}
                   autoCapitalize="none"
+                  autoComplete="new-password"
                   autoCorrect="off"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full"
+                  onChange={handlePasswordChange}
+                  className={`px-[16px] py-[10px] bg-transparent focus:ring-0 focus:outline-none w-full ${
+                    passwordError
+                      ? "border-red-400"
+                      : "border-[rgba(255,255,255,0.30)]"
+                  }`}
                   style={{
-                    border: "1px solid rgba(255, 255, 255, 0.30)",
+                    border: passwordError
+                      ? "1px solid rgba(255, 100, 100, 0.5)"
+                      : "1px solid rgba(255, 255, 255, 0.30)",
                     borderRadius: "12px",
                   }}
                 />
@@ -388,6 +466,9 @@ export default function LoginPage() {
                     />
                   )}
                 </button>
+                {passwordError && (
+                  <p className="text-sm text-red-400 mt-[5px]">{passwordError}</p>
+                )}
               </div>
               {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
               <div className="remember-me mt-[15px] flex items-center gap-[10px]">
@@ -474,6 +555,15 @@ export default function LoginPage() {
               backdropFilter: "blur(10px)",
             }}
           >
+            <button
+              onClick={() => setShowVerificationModal(false)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white"
+              aria-label="Close"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
             <h2 className="text-2xl font-semibold mb-4 text-center">Email Verification Required</h2>
             <p className="text-center mb-6">
               Your account needs to be verified before logging in. We&apos;ve sent a 6-digit verification code to <span className="text-[#BC69F7] font-medium">{email}</span>. 

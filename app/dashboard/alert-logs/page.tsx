@@ -107,6 +107,7 @@ export default function AlertLogs() {
       if (!response.ok) throw new Error("Failed to fetch alerts");
 
       const data = await response.json();
+      console.log(data);
       setAlerts(data.alerts);
       setTotalPages(data.total_pages);
       setTotalCount(data.total_count);
@@ -440,9 +441,9 @@ export default function AlertLogs() {
                       {/* Alert Content */}
                       <div className="col-span-3 md:col-span-2">
                         <p className="font-medium text-sm md:text-base truncate">
-                          {alert.text.length > 40
+                          {alert.text ? alert.text.length > 40
                             ? `${alert.text.substring(0, 40)}...`
-                            : alert.text}
+                            : alert.text : "No text messages found"}
                         </p>
                       </div>
 
