@@ -48,20 +48,19 @@ export default function ThreatActorLibrary() {
   const initialPage = parseInt(searchParams.get("page") || "1", 10);
 
   // States
-  const [searchInput, setSearchInput] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>(initialSearch);
   const [searchKeyword, setSearchKeyword] = useState<string>(initialSearch);
   const [selectedType, setSelectedType] = useState<string>(initialCategory);
   const [selectedStatus, setSelectedStatus] = useState<string>(initialStatus);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
   const [groups, setGroups] = useState<Group[]>([]);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
-  const [isAddMultipleGroupsModalOpen, setIsAddMultipleGroupsModalOpen] =
-    useState(false);
+  const [isAddMultipleGroupsModalOpen, setIsAddMultipleGroupsModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
 
-  // Fetch categories for the dropdown
+  // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -82,126 +81,103 @@ export default function ThreatActorLibrary() {
       }
     };
     fetchCategories();
-  }, []);
+  }, [accessToken]);
 
-  // Watch for URL parameter changes and update state
+  // Handle URL changes and fetch data
   useEffect(() => {
-    // Check if we need to update URL based on state
-    const currentKeyword = searchParams.get("keyword") || "";
-    const currentCategory = searchParams.get("category") || "All";
-    const currentStatus = searchParams.get("status") || "All";
-    const currentPageParam = parseInt(searchParams.get("page") || "1", 10);
-    
-    // Update state if URL params changed (without triggering a fetch)
-    if (searchKeyword !== currentKeyword) {
-      setSearchKeyword(currentKeyword);
-      setSearchInput(currentKeyword); // Also update input field
-    }
-    if (selectedType !== currentCategory) {
-      setSelectedType(currentCategory);
-    }
-    if (selectedStatus !== currentStatus) {
-      setSelectedStatus(currentStatus);
-    }
-    if (currentPage !== currentPageParam) {
-      setCurrentPage(currentPageParam);
-    }
-    
-    // Only fetch data once after all state has been updated
-    const timer = setTimeout(() => {
-      fetchGroups();
-    }, 0);
-    
-    return () => clearTimeout(timer);
-  }, [searchParams]);
-
-  // Update URL when state changes (but don't fetch data here)
-  useEffect(() => {
-    // Set loading to prevent additional fetches during URL update
+    // Set initial loading state
     setLoading(true);
     
-    const params = new URLSearchParams();
-    if (searchKeyword) params.set("keyword", searchKeyword);
-    if (selectedType !== "All") params.set("category", selectedType);
-    if (selectedStatus !== "All") params.set("status", selectedStatus);
-    params.set("page", currentPage.toString());
+    // Get current params from URL
+    const keyword = searchParams.get("keyword") || "";
+    const category = searchParams.get("category") || "All";
+    const status = searchParams.get("status") || "All";
+    const page = parseInt(searchParams.get("page") || "1", 10);
     
-    // Check if URL needs updating
-    const currentUrl = `?${params.toString()}`;
-    const browserUrl = searchParams.toString() ? `?${searchParams.toString()}` : "";
+    // Update state with URL values (without triggering effects)
+    setSearchKeyword(keyword);
+    setSearchInput(keyword);
+    setSelectedType(category);
+    setSelectedStatus(status);
+    setCurrentPage(page);
     
-    // Only update URL if it's different from current browser URL
-    if (currentUrl !== browserUrl) {
-      // Use replace to avoid adding to history stack
-      router.replace(currentUrl, { scroll: false });
-    } else {
-      // If URL didn't change, we still need to reset loading
-      setLoading(false);
-    }
-  }, [searchKeyword, selectedType, selectedStatus, currentPage, router, searchParams]);
+    // Fetch data based on URL parameters
+    const fetchData = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (keyword) params.set("keyword", keyword);
+        if (category !== "All") params.set("category", category);
+        if (status !== "All") params.set("status", status);
+        params.set("page", page.toString());
+        params.set("limit", ITEMS_PER_PAGE.toString());
+        
+        const response = await fetch(
+          `${BASE_URL}/groups/search?${params.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+        
+        if (!response.ok) throw new Error("Failed to fetch groups");
+        
+        const data = await response.json();
+        setGroups(data.groups);
+        setTotalPages(data.total_pages);
+      } catch (error) {
+        console.error("Error fetching groups:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [searchParams, accessToken]);
 
-  // The fetchGroups function (outside any useEffect)
-  const fetchGroups = useCallback(async () => {
-    if (loading) return; // Prevent calling when already loading
-    
-    setLoading(true);
-    try {
-      // Always use state variables directly to build the query
-      const params = new URLSearchParams();
-      if (searchKeyword) params.set("keyword", searchKeyword);
-      if (selectedType !== "All") params.set("category", selectedType);
-      if (selectedStatus !== "All") params.set("status", selectedStatus);
-      params.set("page", currentPage.toString());
-      params.set("limit", ITEMS_PER_PAGE.toString());
-  
-      console.log("Fetching groups with params:", params.toString());
-  
-      const response = await fetch(
-        `${BASE_URL}/groups/search?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch groups");
-  
-      const data = await response.json();
-      setGroups(data.groups);
-      setTotalPages(data.total_pages);
-    } catch (error) {
-      console.error("Error fetching groups:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchKeyword, selectedType, selectedStatus, currentPage, accessToken]);
-
+  // Handler functions - these update the URL which triggers the data fetch
   const handleTypeChange = (value: string) => {
-    if (loading) return; // Prevent actions during loading
-    setSelectedType(value);
-    setCurrentPage(1); // Reset to page 1 when changing filter
+    updateUrlParams({
+      category: value,
+      page: "1" // Reset to page 1
+    });
   };
 
   const handleStatusChange = (value: string) => {
-    if (loading) return; // Prevent actions during loading
-    setSelectedStatus(value);
-    setCurrentPage(1); // Reset to page 1 when changing filter
+    updateUrlParams({
+      status: value,
+      page: "1" // Reset to page 1
+    });
   };
 
   const handlePageChange = (page: number) => {
-    if (loading) return; // Prevent actions during loading
-    setCurrentPage(page);
+    updateUrlParams({
+      page: page.toString()
+    });
   };
 
-  // Handle search button click
   const handleSearch = () => {
-    if (loading) return; // Prevent actions during loading
+    updateUrlParams({
+      keyword: searchInput,
+      page: "1" // Reset to page 1
+    });
+  };
+  
+  // Helper function to update URL params
+  const updateUrlParams = (updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString());
     
-    // Update the search keyword from input
-    setSearchKeyword(searchInput);
+    // Apply updates
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === "" || value === "All") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
     
-    // Reset to page 1 when changing search
-    setCurrentPage(1);
+    // Navigate to new URL
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   return (
