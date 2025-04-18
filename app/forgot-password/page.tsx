@@ -29,13 +29,30 @@ export default function ForgotPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>(Array(6).fill(null));
-  
+
+  // Resend Code states
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [canResend, setCanResend] = useState(false); // Start as false, only allow resend after initial send + cooldown
+
   useEffect(() => {
     // Preload the background image
     const img = new (window.Image as any)();
     img.src = LoginBackground.src;
     img.onload = () => setBgLoaded(true);
   }, []);
+
+  // Cooldown timer effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout | undefined;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    } else if (showResetForm) { // Only allow resend if the form is shown
+      setCanResend(true);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown, showResetForm]);
 
   // Email validation function
   const validateEmail = (email: string): boolean => {
@@ -215,22 +232,50 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
       
-      const data = await response.json();
-      
       if (response.ok) {
-        setMessage("If your email is registered, you will receive a password reset code.");
+        setMessage("Password reset code sent. Please check your email.");
         setShowResetForm(true);
-        
-        // Focus the first reset code input
-        setTimeout(() => {
-          codeInputRefs.current[0]?.focus();
-        }, 100);
+        setCanResend(false); // Disable resend initially
+        setResendCooldown(60); // Start 60-second cooldown
       } else {
-        throw new Error(data.detail || "Failed to send reset code");
+        const errorData = await response.json();
+        setEmailError(errorData.detail || "Failed to send reset code");
       }
     } catch (error) {
       console.error("Forgot password request failed:", error);
       setMessage(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Resend reset code request
+  const handleResendCode = async () => {
+    setMessage(null); // Clear previous messages
+    setEmailError(null);
+    setResetError(null);
+    setIsSubmitting(true); // Show loading state on resend button if needed (optional)
+
+    try {
+      const response = await fetch(`${BASE_URL}/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setMessage("New password reset code sent. Please check your email.");
+        setCanResend(false); // Disable resend button again
+        setResendCooldown(60); // Restart 60-second cooldown
+      } else {
+        const errorData = await response.json();
+        setResetError(errorData.detail || "Failed to resend code. Please try again.");
+      }
+    } catch (error) {
+      setResetError("An error occurred while resending the code. Please try again.");
+      console.error("Resend code error:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -431,6 +476,24 @@ export default function ForgotPasswordPage() {
                     />
                   ))}
                 </div>
+              </div>
+              
+              {/* Resend Code Button/Timer */}
+              <div className="mt-4 text-center">
+                {canResend ? (
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={isSubmitting} // Optional: disable while submitting
+                    className="text-sm text-indigo-400 hover:text-indigo-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  >
+                    Resend Code
+                  </button>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    Resend code in {resendCooldown}s
+                  </p>
+                )}
               </div>
               
               <div className="mb-5">
