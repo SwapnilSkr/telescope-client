@@ -151,7 +151,10 @@ export default function SignUpPage() {
 
   // Email validation function
   const validateEmail = (email: string): boolean => {
-    if (!email) return false;
+    if (!email) {
+      setEmailError("Email is required");
+      return false;
+    }
 
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
