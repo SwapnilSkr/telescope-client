@@ -69,10 +69,10 @@ export const MobileMenu = forwardRef<
   const handleLogout = () => {
     setIsClosing(true);
     setTimeout(() => {
+      router.push("/");
       clearUser();
       setOpen(false);
       document.body.style.overflow = '';
-      router.push("/");
     }, 300); // Match animation duration
   };
   

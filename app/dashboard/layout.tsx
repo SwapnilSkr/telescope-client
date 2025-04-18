@@ -245,8 +245,8 @@ export default function DashboardLayout({
                       <button
                         className="w-full text-left p-3 text-white rounded transition-colors flex items-center group"
                         onClick={() => {
-                          useUserStore.getState().clearUser();
                           router.push("/");
+                          useUserStore.getState().clearUser();
                         }}
                       >
                         <svg
