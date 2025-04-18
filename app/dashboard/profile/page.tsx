@@ -74,10 +74,29 @@ export default function ProfilePage() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 8) {
-      setPasswordError('Password must be at least 8 characters long');
+    // --- Comprehensive Password Validation ---
+    const newPassword = passwordForm.newPassword;
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters long");
       return;
     }
+    if (!/[A-Z]/.test(newPassword)) {
+      setPasswordError("Password must contain at least one uppercase letter");
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setPasswordError("Password must contain at least one lowercase letter");
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setPasswordError("Password must contain at least one number");
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(newPassword)) { // Check for special character
+      setPasswordError("Password must contain at least one special character");
+      return;
+    }
+    // --- End Comprehensive Password Validation ---
 
     setIsUpdatingPassword(true);
     try {
